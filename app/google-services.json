@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "974552097942",
+    "project_id": "smsbulker-99",
+    "storage_bucket": "smsbulker-99.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:974552097942:android:49853b99540d5c659d4eb7",
+        "android_client_info": {
+          "package_name": "com.gscube.smsbulker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgWbPi2S9FZYiRvnORY89AHOkD1Q55q_8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

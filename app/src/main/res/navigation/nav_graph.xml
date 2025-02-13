@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_home">
+
+    <fragment
+        android:id="@+id/nav_home"
+        android:name="com.gscube.smsbulker.ui.home.HomeFragment"
+        android:label="@string/menu_home"
+        tools:layout="@layout/fragment_home">
+        <argument
+            android:name="template"
+            app:argType="com.gscube.smsbulker.data.model.MessageTemplate"
+            app:nullable="true"
+            android:defaultValue="@null" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_contacts"
+        android:name="com.gscube.smsbulker.ui.contacts.ContactsFragment"
+        android:label="@string/title_contacts"
+        tools:layout="@layout/fragment_contacts">
+        <action
+            android:id="@+id/action_contacts_to_sendMessage"
+            app:destination="@id/sendMessageFragment">
+            <argument
+                android:name="preSelectedContacts"
+                app:argType="com.gscube.smsbulker.data.model.Contact[]"
+                app:nullable="true"
+                android:defaultValue="@null" />
+        </action>
+        <action
+            android:id="@+id/action_contacts_to_csvEditor"
+            app:destination="@id/csvEditorFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_templates"
+        android:name="com.gscube.smsbulker.ui.templates.TemplatesFragment"
+        android:label="@string/menu_templates"
+        tools:layout="@layout/fragment_templates">
+        <action
+            android:id="@+id/action_templatesFragment_to_homeFragment"
+            app:destination="@id/nav_home" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_analytics"
+        android:name="com.gscube.smsbulker.ui.analytics.AnalyticsFragment"
+        android:label="@string/menu_analytics"
+        tools:layout="@layout/fragment_analytics" />
+
+    <fragment
+        android:id="@+id/nav_account"
+        android:name="com.gscube.smsbulker.ui.account.AccountFragment"
+        android:label="@string/menu_account"
+        tools:layout="@layout/fragment_account">
+        
+        <action
+            android:id="@+id/action_accountFragment_to_editProfileFragment"
+            app:destination="@id/editProfileFragment"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+            
+        <action
+            android:id="@+id/action_accountFragment_to_subscriptionPlansFragment"
+            app:destination="@id/subscriptionPlansFragment"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+            
+        <action
+            android:id="@+id/action_accountFragment_to_notificationSettingsFragment"
+            app:destination="@id/notificationSettingsFragment"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/editProfileFragment"
+        android:name="com.gscube.smsbulker.ui.account.EditProfileFragment"
+        android:label="@string/edit_profile"
+        tools:layout="@layout/fragment_edit_profile" />
+
+    <fragment
+        android:id="@+id/subscriptionPlansFragment"
+        android:name="com.gscube.smsbulker.ui.subscription.SubscriptionPlansFragment"
+        android:label="@string/subscription"
+        tools:layout="@layout/fragment_subscription_plans" />
+
+    <fragment
+        android:id="@+id/notificationSettingsFragment"
+        android:name="com.gscube.smsbulker.ui.settings.NotificationSettingsFragment"
+        android:label="@string/notification_settings"
+        tools:layout="@layout/fragment_notification_settings" />
+
+    <fragment
+        android:id="@+id/sendMessageFragment"
+        android:name="com.gscube.smsbulker.ui.sendMessage.SendMessageFragment"
+        android:label="@string/title_send_message"
+        tools:layout="@layout/fragment_send_message">
+        
+        <argument
+            android:name="preSelectedContacts"
+            app:argType="com.gscube.smsbulker.data.model.Contact[]"
+            app:nullable="true"
+            android:defaultValue="@null" />
+            
+        <action
+            android:id="@+id/action_sendMessage_to_contacts"
+            app:destination="@id/nav_contacts" />
+            
+        <action
+            android:id="@+id/action_sendMessage_to_templates"
+            app:destination="@id/nav_templates" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/csvEditorFragment"
+        android:name="com.gscube.smsbulker.ui.csvEditor.CsvEditorFragment"
+        android:label="@string/title_csv_editor"
+        tools:layout="@layout/fragment_csv_editor">
+        <argument
+            android:name="csvUri"
+            app:argType="android.net.Uri" />
+    </fragment>
+
+    <action
+        android:id="@+id/action_global_to_csvEditor"
+        app:destination="@id/csvEditorFragment" />
+
+</navigation> 
