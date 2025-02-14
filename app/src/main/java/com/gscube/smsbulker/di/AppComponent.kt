@@ -20,9 +20,11 @@ import dagger.BindsInstance
 import dagger.Component
 import javax.inject.Singleton
 
-@MergeComponent(AppScope::class)
 @Singleton
-interface AppComponent {
+@MergeComponent(
+    scope = AppScope::class
+)
+interface AppComponent : ViewModelComponent {
     fun viewModelFactory(): ViewModelProvider.Factory
 
     fun inject(application: SmsBulkerApplication)

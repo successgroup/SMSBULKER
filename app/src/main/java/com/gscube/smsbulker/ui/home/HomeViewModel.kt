@@ -6,7 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.gscube.smsbulker.data.model.*
 import com.gscube.smsbulker.repository.BulkSmsRepository
-import com.gscube.smsbulker.repository.SmsRepository
+import com.gscube.smsbulker.repository.ContactsRepository
 import com.gscube.smsbulker.repository.TemplateRepository
 import com.gscube.smsbulker.repository.UserRepository
 import com.gscube.smsbulker.di.AppScope
@@ -31,8 +31,8 @@ data class HomeViewState(
 class HomeViewModel @Inject constructor(
     application: Application,
     private val templateRepository: TemplateRepository,
-    private val smsRepository: SmsRepository,
     private val bulkSmsRepository: BulkSmsRepository,
+    private val contactsRepository: ContactsRepository,
     private val userRepository: UserRepository
 ) : AndroidViewModel(application) {
 
@@ -54,123 +54,113 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun sendBulkSms() {
-        val currentState = _state.value
-        val template = currentState.selectedTemplate ?: return
-        val recipients = currentState.recipients
-        val senderID = currentState.senderID
-
-        if (recipients.isEmpty() || senderID.isNullOrBlank()) return
-
-        viewModelScope.launch {
-            try {
-                // Convert recipients to personalized pairs
-                val personalizedRecipients = recipients.map { recipient ->
-                    recipient.phoneNumber to mapOf(
-                        "name" to (recipient.name ?: ""),
-                        "phone" to recipient.phoneNumber
-                    )
-                }
-
-                // Send personalized messages
-                smsRepository.sendPersonalizedSms(
-                    recipients = personalizedRecipients,
-                    messageTemplate = template.content,
-                    sender = senderID
-                ).collect { results ->
-                    _state.update { it.copy(
-                        results = results,
-                        error = null
-                    ) }
-                }
-            } catch (e: Exception) {
-                _state.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun retryFailedMessages() {
-        val currentState = _state.value
-        val template = currentState.selectedTemplate ?: return
-        val failedResults = currentState.results.filter { it.status == "FAILED" }
-
-        if (failedResults.isEmpty()) return
-
-        viewModelScope.launch {
-            try {
-                // Resend failed messages as personalized messages
-                val personalizedRecipients = failedResults.map { result ->
-                    result.recipient to mapOf(
-                        "name" to "",  // Since BulkSmsResult doesn't have name, use empty string
-                        "phone" to result.recipient
-                    )
-                }
-
-                smsRepository.sendPersonalizedSms(
-                    recipients = personalizedRecipients,
-                    messageTemplate = template.content,
-                    sender = currentState.senderID
-                ).collect { results ->
-                    _state.update { it.copy(
-                        results = results,
-                        error = null
-                    ) }
-                }
-            } catch (e: Exception) {
-                _state.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun setSelectedTemplate(template: MessageTemplate?) {
-        _state.update { it.copy(selectedTemplate = template) }
-    }
-
-    fun setRecipients(recipients: List<Recipient>) {
-        _state.update { it.copy(recipients = recipients) }
-    }
-
-    fun setSenderID(senderID: String) {
-        _state.update { it.copy(senderID = senderID) }
-    }
-
-    private fun getMessagePreview(recipient: Recipient): String {
-        val template = _state.value.selectedTemplate ?: return ""
-        return template.content.replace("{name}", recipient.name ?: "")
-            .replace("{phone}", recipient.phoneNumber)
-    }
-
     fun loadRecipients(uri: Uri) {
         viewModelScope.launch {
             try {
-                _state.update { it.copy(isLoading = true) }
-                val recipients = parseRecipientsFromUri(uri)
-                _state.update { it.copy(
-                    recipients = recipients,
-                    isLoading = false,
-                    error = null
-                ) }
+                _state.update { it.copy(isLoading = true, error = null) }
+                bulkSmsRepository.parseRecipientsFromCsv(uri).collect { recipients ->
+                    _state.update { it.copy(
+                        recipients = recipients,
+                        isLoading = false
+                    )}
+                }
             } catch (e: Exception) {
                 _state.update { it.copy(
-                    isLoading = false,
-                    error = "Failed to load recipients: ${e.message}"
-                ) }
+                    error = "Failed to load recipients: ${e.message}",
+                    isLoading = false
+                )}
             }
         }
     }
 
-    private suspend fun parseRecipientsFromUri(uri: Uri): List<Recipient> {
-        // Implementation of CSV parsing logic
-        return emptyList() // TODO: Implement actual CSV parsing
+    fun importContacts() {
+        viewModelScope.launch {
+            try {
+                _state.update { it.copy(isLoading = true, error = null) }
+                val contacts = contactsRepository.getContacts()
+                val recipients = contacts.map { contact ->
+                    Recipient(
+                        name = contact.name,
+                        phoneNumber = contact.phoneNumber,
+                        variables = contact.variables
+                    )
+                }
+                _state.update { it.copy(
+                    recipients = recipients,
+                    isLoading = false
+                )}
+            } catch (e: Exception) {
+                _state.update { it.copy(
+                    error = "Failed to import contacts: ${e.message}",
+                    isLoading = false
+                )}
+            }
+        }
     }
 
-    fun getPreview(recipient: Recipient): String {
-        val template = _state.value.selectedTemplate ?: return ""
-        return template.content.replace("{name}", recipient.name ?: "")
-            .replace("{phone}", recipient.phoneNumber)
+    fun setSelectedTemplate(template: MessageTemplate) {
+        _state.update { it.copy(selectedTemplate = template) }
     }
 
-    fun updateState(update: (HomeViewState) -> HomeViewState) {
-        _state.update(update)
+    fun sendBulkSms() {
+        val currentState = state.value
+        val message = currentState.selectedTemplate?.content ?: return
+        val recipients = currentState.recipients
+        val senderID = currentState.senderID ?: return
+
+        if (recipients.isEmpty()) {
+            _state.update { it.copy(error = "No recipients selected") }
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                _state.update { it.copy(isLoading = true, error = null) }
+                
+                val request = BulkSmsRequest(
+                    message = message,
+                    recipients = recipients,
+                    senderId = senderID,
+                    messageTemplate = currentState.selectedTemplate
+                )
+                
+                val response = bulkSmsRepository.sendBulkSms(request)
+                response.onSuccess { bulkSmsResponse ->
+                    // Create BulkSmsResults from response
+                    val results = recipients.map { recipient ->
+                        BulkSmsResult(
+                            recipient = recipient.phoneNumber,
+                            status = bulkSmsResponse.status.toString(),
+                            messageId = bulkSmsResponse.batchId,
+                            timestamp = bulkSmsResponse.timestamp
+                        )
+                    }
+                    
+                    _state.update { it.copy(
+                        results = results,
+                        isLoading = false,
+                        success = "Messages sent successfully"
+                    )}
+                }.onFailure { error ->
+                    _state.update { it.copy(
+                        error = "Failed to send messages: ${error.message}",
+                        isLoading = false
+                    )}
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(
+                    error = "Failed to send messages: ${e.message}",
+                    isLoading = false
+                )}
+            }
+        }
+    }
+
+    fun clearError() {
+        _state.update { it.copy(error = null) }
+    }
+
+    fun clearSuccess() {
+        _state.update { it.copy(success = null, results = emptyList()) }
     }
 }

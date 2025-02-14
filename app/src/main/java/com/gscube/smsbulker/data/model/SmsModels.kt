@@ -115,3 +115,11 @@ data class Template(
     val createdAt: Long,
     val updatedAt: Long
 ) : Parcelable
+
+@Parcelize
+data class PersonalizedSmsRequest(
+    val sender: String,
+    val message: String,
+    val recipients: Map<String, Map<String, String>>,
+    val callback_url: String? = null
+) : Parcelable

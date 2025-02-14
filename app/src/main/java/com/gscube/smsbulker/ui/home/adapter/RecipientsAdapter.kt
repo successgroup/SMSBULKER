@@ -9,9 +9,7 @@ import com.gscube.smsbulker.data.model.Recipient
 import com.gscube.smsbulker.databinding.ItemRecipientBinding
 import com.google.android.material.chip.Chip
 
-class RecipientsAdapter(
-    private val getMessagePreview: (Recipient) -> String
-) : ListAdapter<Recipient, RecipientsAdapter.ViewHolder>(RecipientDiffCallback()) {
+class RecipientsAdapter : ListAdapter<Recipient, RecipientsAdapter.ViewHolder>(RecipientDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemRecipientBinding.inflate(
@@ -33,8 +31,7 @@ class RecipientsAdapter(
         fun bind(recipient: Recipient) {
             binding.apply {
                 phoneNumberText.text = recipient.phoneNumber
-                nameText.text = recipient.name
-                messagePreviewText.text = getMessagePreview(recipient)
+                nameText.text = recipient.name ?: "Unknown"
 
                 // Clear existing chips
                 variablesChipGroup.removeAllViews()
@@ -60,4 +57,4 @@ private class RecipientDiffCallback : DiffUtil.ItemCallback<Recipient>() {
     override fun areContentsTheSame(oldItem: Recipient, newItem: Recipient): Boolean {
         return oldItem == newItem
     }
-} 
+}
