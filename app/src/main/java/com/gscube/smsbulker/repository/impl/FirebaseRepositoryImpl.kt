@@ -18,7 +18,6 @@ import java.util.*
 @Singleton
 @ContributesBinding(AppScope::class)
 class FirebaseRepositoryImpl @Inject constructor(
-    @Named("applicationContext") private val context: Context,
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val secureStorage: SecureStorage
@@ -93,29 +92,52 @@ class FirebaseRepositoryImpl @Inject constructor(
 
     override suspend fun getCurrentUser(): Result<UserProfile?> {
         return try {
-            auth.currentUser?.let { firebaseUser ->
-                val userDoc = firestore.collection("users")
-                    .document(firebaseUser.uid)
-                    .get()
-                    .await()
-                
-                if (userDoc.exists()) {
-                    val profile = UserProfile(
-                        userId = firebaseUser.uid,
-                        email = firebaseUser.email ?: "",
-                        name = userDoc.getString("name") ?: "",
-                        phone = userDoc.getString("phone") ?: "",
-                        company = userDoc.getString("company"),
-                        emailVerified = firebaseUser.isEmailVerified,
-                        apiKey = userDoc.getString("apiKey") ?: "",
-                        createdAt = userDoc.getLong("createdAt") ?: System.currentTimeMillis(),
-                        lastLogin = userDoc.getLong("lastLogin") ?: System.currentTimeMillis()
-                    )
-                    Result.success(profile)
-                } else {
-                    Result.success(null)
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                Result.success(null)
+            } else {
+                try {
+                    val userDoc = firestore.collection("users")
+                        .document(currentUser.uid)
+                        .get()
+                        .await()
+                    
+                    if (userDoc.exists()) {
+                        val profile = UserProfile(
+                            userId = currentUser.uid,
+                            email = currentUser.email ?: "",
+                            name = userDoc.getString("name") ?: "",
+                            phone = userDoc.getString("phone") ?: "",
+                            company = userDoc.getString("company"),
+                            emailVerified = currentUser.isEmailVerified,
+                            apiKey = userDoc.getString("apiKey") ?: "",
+                            createdAt = userDoc.getLong("createdAt") ?: System.currentTimeMillis(),
+                            lastLogin = System.currentTimeMillis()
+                        )
+
+                        // Store in SecureStorage for offline access
+                        secureStorage.saveUserProfile(profile)
+                        
+                        Result.success(profile)
+                    } else {
+                        // Try to get from SecureStorage if Firestore fails
+                        val savedProfile = secureStorage.getUserProfile()
+                        if (savedProfile != null) {
+                            Result.success(savedProfile)
+                        } else {
+                            Result.failure(Exception("User profile not found"))
+                        }
+                    }
+                } catch (e: Exception) {
+                    // If Firestore fails, try SecureStorage
+                    val savedProfile = secureStorage.getUserProfile()
+                    if (savedProfile != null) {
+                        Result.success(savedProfile)
+                    } else {
+                        Result.failure(e)
+                    }
                 }
-            } ?: Result.success(null)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

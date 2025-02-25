@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.migration.Migration
+import com.gscube.smsbulker.data.local.converters.ContactConverters
 
 @Database(
     entities = [ContactEntity::class],

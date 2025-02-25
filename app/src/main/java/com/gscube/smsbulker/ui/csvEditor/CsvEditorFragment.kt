@@ -1,10 +1,19 @@
 package com.gscube.smsbulker.ui.csvEditor
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -31,6 +40,28 @@ class CsvEditorFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var tableAdapter: TableAdapter
     private lateinit var smartTable: TableView
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            handleSaveCsv()
+        } else {
+            showStoragePermissionError()
+        }
+    }
+
+    private val manageStoragePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (Environment.isExternalStorageManager()) {
+                handleSaveCsv()
+            } else {
+                showStoragePermissionError()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         (requireActivity().application as SmsBulkerApplication).appComponent.inject(this)
@@ -96,21 +127,81 @@ class CsvEditorFragment : Fragment() {
             }
 
             saveButton.setOnClickListener {
-                viewModel.saveCsv().observe(viewLifecycleOwner) { result ->
-                    when (result) {
-                        is CsvEditorViewModel.SaveResult.Success -> {
-                            Snackbar.make(binding.root, "CSV saved successfully", Snackbar.LENGTH_SHORT).show()
-                            findNavController().navigateUp()
-                        }
-                        is CsvEditorViewModel.SaveResult.Error -> {
-                            Snackbar.make(binding.root, "Failed to save CSV: ${result.message}", Snackbar.LENGTH_LONG).show()
-                        }
-                    }
-                }
+                checkAndRequestStoragePermission()
             }
 
             editModeSwitch.setOnCheckedChangeListener { _, isChecked ->
                 tableAdapter.toggleEditMode(isChecked)
+            }
+        }
+    }
+
+    private fun checkAndRequestStoragePermission() {
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
+                if (Environment.isExternalStorageManager()) {
+                    handleSaveCsv()
+                } else {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:${requireContext().packageName}")
+                    }
+                    manageStoragePermissionLauncher.launch(intent)
+                }
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
+                when {
+                    ContextCompat.checkSelfPermission(
+                        requireContext(),
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    ) == PackageManager.PERMISSION_GRANTED -> {
+                        handleSaveCsv()
+                    }
+                    shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE) -> {
+                        showStoragePermissionRationale()
+                    }
+                    else -> {
+                        requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    }
+                }
+            }
+            else -> {
+                handleSaveCsv()
+            }
+        }
+    }
+
+    private fun showStoragePermissionRationale() {
+        Snackbar.make(
+            binding.root,
+            "Storage permission is required to save CSV files",
+            Snackbar.LENGTH_INDEFINITE
+        ).setAction("Grant") {
+            requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }.show()
+    }
+
+    private fun showStoragePermissionError() {
+        Snackbar.make(
+            binding.root,
+            "Storage permission denied. Cannot save CSV file.",
+            Snackbar.LENGTH_LONG
+        ).setAction("Settings") {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", requireContext().packageName, null)
+            })
+        }.show()
+    }
+
+    private fun handleSaveCsv() {
+        viewModel.saveCsv().observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is SaveResult.Success -> {
+                    Snackbar.make(binding.root, "CSV saved successfully", Snackbar.LENGTH_SHORT).show()
+                    findNavController().navigateUp()
+                }
+                is SaveResult.Error -> {
+                    Snackbar.make(binding.root, "Failed to save CSV: ${result.message}", Snackbar.LENGTH_LONG).show()
+                }
             }
         }
     }

@@ -1,5 +1,8 @@
 package com.gscube.smsbulker.ui.contacts
 
+import android.content.Context
+import android.content.Intent
+import android.media.MediaScannerConnection
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,7 +11,11 @@ import com.gscube.smsbulker.repository.ContactsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileWriter
 import javax.inject.Inject
+import android.os.Environment
+import android.app.Application
 
 data class ContactsUiState(
     val contacts: List<Contact> = emptyList(),
@@ -25,7 +32,8 @@ sealed interface ContactsEvent {
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ContactsViewModel @Inject constructor(
-    private val contactsRepository: ContactsRepository
+    private val contactsRepository: ContactsRepository,
+    private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ContactsUiState())
@@ -113,12 +121,39 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
+    fun deleteContacts(contacts: List<Contact>) {
+        viewModelScope.launch {
+            try {
+                contacts.forEach { contact ->
+                    contactsRepository.deleteContact(contact)
+                }
+                _events.emit(ContactsEvent.ShowSuccess("${contacts.size} contacts deleted"))
+            } catch (e: Exception) {
+                _events.emit(ContactsEvent.ShowError("Failed to delete contacts: ${e.message}"))
+            }
+        }
+    }
+
     fun importContacts(uri: Uri) {
         viewModelScope.launch {
             try {
                 setLoading(true)
                 contactsRepository.importContactsFromCsv(uri)
                 emitEvent(ContactsEvent.ShowSuccess("Contacts imported successfully"))
+            } catch (e: Exception) {
+                handleError(e)
+            } finally {
+                setLoading(false)
+            }
+        }
+    }
+
+    fun importContactsFromCsv(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                setLoading(true)
+                val contacts = contactsRepository.importContactsFromCsv(uri)
+                emitEvent(ContactsEvent.ShowSuccess("Imported ${contacts.size} contacts from CSV"))
             } catch (e: Exception) {
                 handleError(e)
             } finally {
@@ -137,6 +172,40 @@ class ContactsViewModel @Inject constructor(
                 handleError(e)
             } finally {
                 setLoading(false)
+            }
+        }
+    }
+
+    fun exportContactsToCSV(contacts: List<Contact>) {
+        viewModelScope.launch {
+            try {
+                val fileName = "contacts_export_${System.currentTimeMillis()}.csv"
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = File(downloadsDir, fileName)
+                
+                file.bufferedWriter().use { writer ->
+                    // Write header
+                    writer.write("Name,Phone Number,Group,Variables\n")
+                    
+                    // Write contacts
+                    contacts.forEach { contact ->
+                        val variables = contact.variables.entries.joinToString(";") { "${it.key}=${it.value}" }
+                        writer.write("${contact.name},${contact.phoneNumber},${contact.group},${variables}\n")
+                    }
+                }
+                
+                // Notify media scanner
+                MediaScannerConnection.scanFile(
+                    context,
+                    arrayOf(file.absolutePath),
+                    arrayOf("text/csv")
+                ) { path, uri -> 
+                    viewModelScope.launch {
+                        _events.emit(ContactsEvent.ShowSuccess("Contacts exported to $path"))
+                    }
+                }
+            } catch (e: Exception) {
+                _events.emit(ContactsEvent.ShowError("Failed to export contacts: ${e.message}"))
             }
         }
     }

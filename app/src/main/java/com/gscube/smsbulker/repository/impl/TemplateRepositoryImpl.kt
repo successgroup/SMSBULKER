@@ -25,7 +25,55 @@ class TemplateRepositoryImpl @Inject constructor(
 ) : TemplateRepository {
 
     override fun getAllTemplates(): Flow<List<MessageTemplate>> {
-        return database.getTemplatesByCategory(TemplateCategory.GENERAL)
+        return flow {
+            withContext(Dispatchers.IO) {
+                val cursor = database.readableDatabase.query(
+                    "templates",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "created_at DESC"
+                )
+                
+                cursor.use { c ->
+                    val templates = mutableListOf<MessageTemplate>()
+                    if (c.moveToFirst()) {
+                        do {
+                            val id = c.getString(c.getColumnIndexOrThrow("id"))
+                            val title = c.getString(c.getColumnIndexOrThrow("title"))
+                            val content = c.getString(c.getColumnIndexOrThrow("content"))
+                            val categoryStr = c.getString(c.getColumnIndexOrThrow("category"))
+                            val variablesJson = c.getString(c.getColumnIndexOrThrow("variables"))
+                            val createdAt = c.getLong(c.getColumnIndexOrThrow("created_at"))
+                            val isCustom = c.getInt(c.getColumnIndexOrThrow("is_custom")) == 1
+                            
+                            val category = try {
+                                TemplateCategory.valueOf(categoryStr)
+                            } catch (e: IllegalArgumentException) {
+                                TemplateCategory.GENERAL
+                            }
+                            
+                            val variables = database.getVariablesFromJson(variablesJson)
+                            
+                            templates.add(
+                                MessageTemplate(
+                                    id = id,
+                                    title = title,
+                                    content = content,
+                                    category = category,
+                                    variables = variables,
+                                    createdAt = createdAt,
+                                    isCustom = isCustom
+                                )
+                            )
+                        } while (c.moveToNext())
+                    }
+                    emit(templates)
+                }
+            }
+        }
     }
 
     override suspend fun insertTemplate(template: MessageTemplate) {

@@ -24,15 +24,14 @@ class TemplatesViewModel @Inject constructor(
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
 
-    private val _selectedCategory = MutableLiveData<TemplateCategory>(TemplateCategory.MARKETTING)
+    private val _selectedCategory = MutableLiveData<TemplateCategory>(TemplateCategory.GENERAL)
     val selectedCategory: LiveData<TemplateCategory> = _selectedCategory
 
-    // Templates are now observed as a Flow from Room
-    private var _templates = MutableLiveData<List<MessageTemplate>>()
+    private val _templates = MutableLiveData<List<MessageTemplate>>()
     val templates: LiveData<List<MessageTemplate>> = _templates
 
     init {
-        loadTemplates(TemplateCategory.MARKETTING)
+        loadTemplates(TemplateCategory.GENERAL)
     }
 
     fun loadTemplates(category: TemplateCategory) {
@@ -40,8 +39,8 @@ class TemplatesViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 _selectedCategory.value = category
-                templateRepository.getAllTemplates().collectLatest { templates ->
-                    _templates.value = templates.filter { it.category == category }
+                templateRepository.getTemplatesByCategory(category).collectLatest { templates ->
+                    _templates.value = templates
                 }
             } catch (e: Exception) {
                 _error.value = "Failed to load templates: ${e.message}"
@@ -57,7 +56,7 @@ class TemplatesViewModel @Inject constructor(
             try {
                 templateRepository.addTemplate(template)
                 // Reload templates after saving
-                loadTemplates(selectedCategory.value ?: TemplateCategory.MARKETTING)
+                loadTemplates(selectedCategory.value ?: TemplateCategory.GENERAL)
             } catch (e: Exception) {
                 _error.value = "Failed to save template: ${e.message}"
             } finally {
@@ -80,7 +79,7 @@ class TemplatesViewModel @Inject constructor(
             try {
                 templateRepository.deleteTemplate(template)
                 // Reload templates after deleting
-                loadTemplates(selectedCategory.value ?: TemplateCategory.MARKETTING)
+                loadTemplates(selectedCategory.value ?: TemplateCategory.GENERAL)
             } catch (e: Exception) {
                 _error.value = "Failed to delete template: ${e.message}"
             } finally {

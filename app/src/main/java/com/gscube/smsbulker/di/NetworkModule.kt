@@ -8,13 +8,15 @@ import com.gscube.smsbulker.data.network.BulkSmsApiService
 import com.gscube.smsbulker.data.network.SmsApiService
 import com.gscube.smsbulker.utils.SecureStorage
 import com.squareup.anvil.annotations.ContributesTo
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
 import dagger.Provides
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
@@ -29,6 +31,14 @@ object NetworkModule {
     @Named("api_key")
     fun provideApiKey(secureStorage: SecureStorage): String {
         return secureStorage.getApiKey() ?: throw IllegalStateException("SMS API key not found")
+    }
+
+    @Provides
+    @Singleton
+    @Named("sandbox_mode")
+    fun provideSandboxMode(): Boolean {
+        // Change this to false for production
+        return true
     }
 
     @Provides
@@ -52,6 +62,14 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideMoshi(): Moshi {
+        return Moshi.Builder()
+            .add(KotlinJsonAdapterFactory())
+            .build()
+    }
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(
         authInterceptor: Interceptor,
         loggingInterceptor: HttpLoggingInterceptor
@@ -67,11 +85,14 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
+    fun provideRetrofit(
+        okHttpClient: OkHttpClient,
+        moshi: Moshi
+    ): Retrofit {
         return Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
     }
 

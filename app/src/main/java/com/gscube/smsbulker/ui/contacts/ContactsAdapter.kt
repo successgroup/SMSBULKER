@@ -36,6 +36,27 @@ class ContactsAdapter(
 
     fun getSelectedContacts(): Set<Contact> = selectedContacts.toSet()
 
+    fun selectAll() {
+        selectedContacts.clear()
+        selectedContacts.addAll(currentList)
+        notifyDataSetChanged()
+        onSelectionChanged(selectedContacts)
+    }
+
+    fun deselectAll() {
+        selectedContacts.clear()
+        notifyDataSetChanged()
+        onSelectionChanged(selectedContacts)
+    }
+
+    fun toggleSelection() {
+        if (selectedContacts.size == currentList.size) {
+            deselectAll()
+        } else {
+            selectAll()
+        }
+    }
+
     fun clearSelection() {
         selectedContacts.clear()
         notifyDataSetChanged()

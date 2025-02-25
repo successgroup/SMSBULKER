@@ -10,7 +10,10 @@ import dagger.Module
         DatabaseModule::class,
         SmsModule::class,
         FirebaseModule::class,
-        AnalyticsModule::class
+        AnalyticsModule::class,
+        StorageModule::class,
+        CsvModule::class,
+        ViewModelModule::class
     ]
 )
 @ContributesTo(AppScope::class)

@@ -5,41 +5,33 @@ import android.app.Activity
 import android.content.ContentProviderOperation
 import android.content.ContentResolver
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.ContactsContract
 import android.provider.Settings
-import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.os.bundleOf
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.gscube.smsbulker.R
 import com.gscube.smsbulker.data.model.Contact
 import com.gscube.smsbulker.databinding.FragmentContactsBinding
-import com.gscube.smsbulker.databinding.DialogEditContactBinding
+import com.gscube.smsbulker.databinding.FragmentEditContactBinding
 import com.gscube.smsbulker.SmsBulkerApplication
-import com.gscube.smsbulker.ui.contacts.ContactsAdapter
-import com.gscube.smsbulker.ui.contacts.ContactsViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 class ContactsFragment : Fragment() {
@@ -57,11 +49,15 @@ class ContactsFragment : Fragment() {
         when {
             permissions[Manifest.permission.WRITE_CONTACTS] == true -> {
                 // Permission granted, proceed with export
-                exportSelectedContactsToPhone()
+                exportSelectedContactsToPhone(contactsAdapter.getSelectedContacts().toList())
+            }
+            permissions[Manifest.permission.READ_CONTACTS] == true -> {
+                // Permission granted, proceed with import
+                viewModel.importFromPhoneContacts()
             }
             permissions[Manifest.permission.WRITE_EXTERNAL_STORAGE] == true -> {
                 // Permission granted, proceed with CSV export
-                exportContactsToCSV()
+                exportContactsToCSV(contactsAdapter.getSelectedContacts().toList())
             }
             else -> {
                 // Show settings dialog if permission denied
@@ -70,25 +66,27 @@ class ContactsFragment : Fragment() {
         }
     }
 
-    private val getContent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                navigateToCsvEditor(uri)
-            }
-        }
-    }
-
-    private val getContentForDirectImport = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                viewModel.importContacts(uri)
+    private val csvFilePicker = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { selectedUri ->
+            try {
+                // Take persistable permission
+                requireContext().contentResolver.takePersistableUriPermission(
+                    selectedUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                viewModel.importContactsFromCsv(selectedUri)
+            } catch (e: Exception) {
+                Snackbar.make(binding.root, "Failed to import CSV: ${e.message}", Snackbar.LENGTH_LONG).show()
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        (requireActivity().application as SmsBulkerApplication).appComponent.inject(this)
         super.onCreate(savedInstanceState)
+        (requireActivity().application as SmsBulkerApplication)
+            .appComponent.inject(this)
     }
 
     override fun onCreateView(
@@ -98,30 +96,24 @@ class ContactsFragment : Fragment() {
     ): View {
         _binding = FragmentContactsBinding.inflate(inflater, container, false)
         setHasOptionsMenu(true)
+
+        setupRecyclerView()
+        setupSearch()
+        observeViewModel()
+        setupButtons()
+
         return binding.root
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        setupViews()
-        setupRecyclerView()
-        setupSearch()
-        observeState()
-        observeEvents()
-    }
-
-    private fun setupViews() {
-        binding.apply {
-            // Setup buttons
-            addContactButton.setOnClickListener {
-                showEditContactDialog(null)
-            }
-            importButton.setOnClickListener {
-                showImportDialog()
-            }
-            exportButton.setOnClickListener {
-                requestRequiredPermissions(false)
-            }
+    private fun setupButtons() {
+        binding.addContactButton.setOnClickListener {
+            showEditContactDialog(null)
+        }
+        binding.importButton.setOnClickListener {
+            showImportDialog()
+        }
+        binding.exportButton.setOnClickListener {
+            showExportDialog(viewModel.uiState.value.contacts)
         }
     }
 
@@ -131,40 +123,20 @@ class ContactsFragment : Fragment() {
                 showEditContactDialog(contact)
             },
             onDeleteClick = { contact ->
-                showDeleteConfirmationDialog(contact)
+                showDeleteConfirmationDialog(listOf(contact))
             },
             onSendClick = { contact ->
-                // Navigate to send message screen with single contact
-                findNavController().navigate(R.id.action_contacts_to_sendMessage, bundleOf(
-                    "preSelectedContacts" to arrayOf(contact)
-                ))
+                navigateToSendMessage(listOf(contact))
             },
             onSelectionChanged = { selectedContacts ->
-                // Show/hide send FAB based on selection
-                binding.sendSelectedFab.apply {
-                    visibility = if (selectedContacts.isNotEmpty()) View.VISIBLE else View.GONE
-                    text = "Send to ${selectedContacts.size} Selected"
-                }
+                updateToolbarForSelection(selectedContacts)
             }
         )
 
-        binding.apply {
-            contactsRecyclerView.adapter = contactsAdapter
-            contactsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
-            contactsRecyclerView.addItemDecoration(
-                DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL)
-            )
-
-            // Setup send selected FAB
-            sendSelectedFab.setOnClickListener {
-                val selectedContacts = contactsAdapter.getSelectedContacts()
-                if (selectedContacts.isNotEmpty()) {
-                    findNavController().navigate(R.id.action_contacts_to_sendMessage, bundleOf(
-                        "preSelectedContacts" to selectedContacts.toTypedArray()
-                    ))
-                    contactsAdapter.clearSelection()
-                }
-            }
+        binding.contactsRecyclerView.apply {
+            adapter = contactsAdapter
+            layoutManager = LinearLayoutManager(requireContext())
+            addItemDecoration(DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL))
         }
     }
 
@@ -174,7 +146,7 @@ class ContactsFragment : Fragment() {
         }
     }
 
-    private fun observeState() {
+    private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collectLatest { state ->
@@ -189,60 +161,117 @@ class ContactsFragment : Fragment() {
         }
     }
 
-    private fun observeEvents() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.events.collectLatest { event ->
-                    when (event) {
-                        is ContactsEvent.ShowError -> showSnackbar(event.message)
-                        is ContactsEvent.ShowSuccess -> showSnackbar(event.message)
-                        ContactsEvent.DismissMessage -> { /* No-op */ }
+    private fun updateToolbarForSelection(selectedContacts: Set<Contact>) {
+        activity?.invalidateOptionsMenu()
+        if (selectedContacts.isNotEmpty()) {
+            binding.apply {
+                sendSelectedFab.apply {
+                    visibility = View.VISIBLE
+                    text = "Send to ${selectedContacts.size} Selected"
+                    setOnClickListener {
+                        navigateToSendMessage(selectedContacts.toList())
+                        contactsAdapter.clearSelection()
                     }
                 }
             }
+        } else {
+            binding.sendSelectedFab.visibility = View.GONE
         }
     }
 
-    private fun showImportDialog() {
-        val options = arrayOf(
-            "Import CSV file directly",
-            "Edit CSV file before import",
-            "Import from device contacts"
-        )
+    private fun showSelectionActions(show: Boolean) {
+        activity?.invalidateOptionsMenu()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.menu_contacts, menu)
+        
+        // Show/hide selection actions based on selection state
+        val hasSelection = contactsAdapter.getSelectedContacts().isNotEmpty()
+        menu.findItem(R.id.action_delete_selected)?.isVisible = hasSelection
+        menu.findItem(R.id.action_send_selected)?.isVisible = hasSelection
+        menu.findItem(R.id.action_export_selected)?.isVisible = hasSelection
+        
+        super.onCreateOptionsMenu(menu, inflater)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_select_all -> {
+                contactsAdapter.toggleSelection()
+                true
+            }
+            R.id.action_delete_selected -> {
+                showDeleteConfirmationDialog(contactsAdapter.getSelectedContacts().toList())
+                true
+            }
+            R.id.action_send_selected -> {
+                navigateToSendMessage(contactsAdapter.getSelectedContacts().toList())
+                true
+            }
+            R.id.action_export_selected -> {
+                showExportDialog(contactsAdapter.getSelectedContacts().toList())
+                true
+            }
+            R.id.action_import_csv -> {
+                showImportDialog()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun showDeleteConfirmationDialog(contacts: List<Contact>) {
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Choose Import Method")
-            .setItems(options) { _, which ->
+            .setTitle("Delete Contacts")
+            .setMessage("Are you sure you want to delete ${contacts.size} contact(s)?")
+            .setPositiveButton("Delete") { _, _ ->
+                viewModel.deleteContacts(contacts)
+                contactsAdapter.clearSelection()
+                Snackbar.make(binding.root, "${contacts.size} contact(s) deleted", Snackbar.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun navigateToSendMessage(contacts: List<Contact>) {
+        findNavController().navigate(
+            R.id.nav_home,
+            bundleOf("selected_contacts" to ArrayList(contacts))
+        )
+        contactsAdapter.clearSelection()
+    }
+
+    private fun showExportDialog(contacts: List<Contact>) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Export Contacts")
+            .setItems(arrayOf("Export to CSV", "Export to Phone")) { _, which ->
                 when (which) {
-                    0 -> launchFilePicker(false)
-                    1 -> launchFilePicker(true)
-                    2 -> requestRequiredPermissions(true)
+                    0 -> exportContactsToCSV(contacts)
+                    1 -> exportContactsToPhone(contacts)
                 }
             }
             .show()
     }
 
-    private fun launchFilePicker(openInEditor: Boolean) {
-        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-            // Accept any file type but add CSV-specific MIME types
-            type = "*/*"
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
-                "text/csv",
-                "text/comma-separated-values",
-                "application/csv",
-                "text/plain"
-            ))
-            addCategory(Intent.CATEGORY_OPENABLE)
-        }
-        if (openInEditor) {
-            getContent.launch(intent)
+    private fun exportContactsToCSV(contacts: List<Contact>) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            viewModel.exportContactsToCSV(contacts)
         } else {
-            getContentForDirectImport.launch(intent)
+            requestPermissionLauncher.launch(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE))
         }
     }
 
-    private fun exportSelectedContactsToPhone() {
+    private fun exportContactsToPhone(contacts: List<Contact>) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestPermissionLauncher.launch(arrayOf(Manifest.permission.WRITE_CONTACTS))
+        } else {
+            exportSelectedContactsToPhone(contacts)
+        }
+    }
+
+    private fun exportSelectedContactsToPhone(contacts: List<Contact>) {
         val contentResolver: ContentResolver = requireContext().contentResolver
-        val contacts = viewModel.uiState.value.contacts
 
         try {
             contacts.forEach { contact ->
@@ -278,116 +307,88 @@ class ContactsFragment : Fragment() {
         }
     }
 
-    private fun exportContactsToCSV() {
-        try {
-            val fileName = "contacts_export_${System.currentTimeMillis()}.csv"
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val file = File(downloadsDir, fileName)
-            
-            file.bufferedWriter().use { writer ->
-                // Write header
-                writer.write("Name,Phone Number,Group,Variables\n")
-                
-                // Write contacts
-                viewModel.uiState.value.contacts.forEach { contact ->
-                    val variables = contact.variables.entries.joinToString(";") { "${it.key}=${it.value}" }
-                    writer.write("${contact.name},${contact.phoneNumber},${contact.group},${variables}\n")
+    private fun showImportDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Import Contacts")
+            .setItems(arrayOf("Import from Phone", "Import from CSV")) { _, which ->
+                when (which) {
+                    0 -> checkPermissionsAndImportContacts()
+                    1 -> checkPermissionsAndImportCsv()
                 }
             }
-            
-            // Notify media scanner
-            val uri = Uri.fromFile(file)
-            requireContext().sendBroadcast(Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, uri))
-            
-            Snackbar.make(binding.root, "Contacts exported to ${file.path}", Snackbar.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Snackbar.make(binding.root, "Failed to export contacts: ${e.message}", Snackbar.LENGTH_LONG).show()
+            .show()
+    }
+
+    private fun checkPermissionsAndImportCsv() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            csvFilePicker.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv"))
+        } else {
+            val permissions = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+            if (permissions.all { permission ->
+                    requireContext().checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+                }) {
+                csvFilePicker.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv"))
+            } else {
+                requestPermissionLauncher.launch(permissions)
+            }
+        }
+    }
+
+    private fun checkPermissionsAndImportContacts() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestPermissionLauncher.launch(arrayOf(Manifest.permission.READ_CONTACTS))
+        } else {
+            viewModel.importFromPhoneContacts()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_CODE_PICK_CSV && resultCode == Activity.RESULT_OK) {
+            data?.data?.let { uri ->
+                viewModel.importContacts(uri)
+            }
         }
     }
 
     private fun showPermissionSettingsDialog() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Permission Required")
-            .setMessage("This feature requires additional permissions. Please grant them in Settings.")
+            .setMessage("This feature requires permission to access your contacts. Please grant the permission in Settings.")
             .setPositiveButton("Settings") { _, _ ->
-                // Open app settings
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     data = Uri.fromParts("package", requireContext().packageName, null)
-                })
+                }
+                startActivity(intent)
             }
             .setNegativeButton("Cancel", null)
             .show()
-    }
-
-    private fun requestRequiredPermissions(forExport: Boolean) {
-        val permission = if (forExport) {
-            Manifest.permission.WRITE_CONTACTS
-        } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                null // No permission needed for Android 10+
-            } else {
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            }
-        }
-
-        permission?.let {
-            requestPermissionLauncher.launch(arrayOf(it))
-        } ?: run {
-            // No permission needed, proceed with operation
-            if (forExport) {
-                exportSelectedContactsToPhone()
-            } else {
-                exportContactsToCSV()
-            }
-        }
     }
 
     private fun showEditContactDialog(contact: Contact?) {
-        val dialogBinding = DialogEditContactBinding.inflate(layoutInflater)
-        val isNewContact = contact == null
+        val dialogBinding = FragmentEditContactBinding.inflate(layoutInflater)
         
-        if (!isNewContact) {
+        // Pre-fill fields if editing existing contact
+        contact?.let { existingContact ->
             dialogBinding.apply {
-                phoneInput.setText(contact?.phoneNumber)
-                nameInput.setText(contact?.name)
-                groupInput.setText(contact?.group)
-                // TODO: Handle custom variables
+                nameInput.setText(existingContact.name)
+                phoneInput.setText(existingContact.phoneNumber)
+                groupInput.setText(existingContact.group)
             }
         }
 
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle(if (isNewContact) "Add Contact" else "Edit Contact")
+            .setTitle(if (contact == null) "Add Contact" else "Edit Contact")
             .setView(dialogBinding.root)
-            .setPositiveButton(if (isNewContact) "Add" else "Save") { _, _ ->
-                val phone = dialogBinding.phoneInput.text?.toString()
-                val name = dialogBinding.nameInput.text?.toString()
-                val group = dialogBinding.groupInput.text?.toString()
-
-                if (phone.isNullOrBlank() || name.isNullOrBlank()) {
-                    showSnackbar("Phone and name are required")
-                    return@setPositiveButton
-                }
-
+            .setPositiveButton("Save") { _, _ ->
                 val newContact = Contact(
-                    id = contact?.id,
-                    phoneNumber = phone,
-                    name = name,
-                    group = group ?: "",
+                    id = contact?.id?.toString() ?: "",
+                    name = dialogBinding.nameInput.text.toString(),
+                    phoneNumber = dialogBinding.phoneInput.text.toString(),
+                    group = dialogBinding.groupInput.text.toString(),
                     variables = contact?.variables ?: emptyMap()
                 )
-
                 viewModel.saveContact(newContact)
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun showDeleteConfirmationDialog(contact: Contact) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Delete Contact")
-            .setMessage("Are you sure you want to delete ${contact.name}?")
-            .setPositiveButton("Delete") { _, _ ->
-                viewModel.deleteContact(contact)
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -397,27 +398,12 @@ class ContactsFragment : Fragment() {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        super.onCreateOptionsMenu(menu, inflater)
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_import_csv -> {
-                showImportDialog()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    private fun navigateToCsvEditor(uri: Uri) {
-        val action = ContactsFragmentDirections.actionContactsToCsvEditor(uri)
-        findNavController().navigate(action)
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    companion object {
+        private const val REQUEST_CODE_PICK_CSV = 1001
     }
 }

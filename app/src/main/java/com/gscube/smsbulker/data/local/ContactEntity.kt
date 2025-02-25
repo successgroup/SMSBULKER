@@ -2,14 +2,12 @@ package com.gscube.smsbulker.data.local
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import androidx.room.TypeConverter
 import androidx.room.TypeConverters
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.gscube.smsbulker.data.local.converters.ContactConverters
 import com.gscube.smsbulker.data.model.Contact
-import java.lang.reflect.Type
 
 @Entity(tableName = "contacts")
+@TypeConverters(ContactConverters::class)
 data class ContactEntity(
     @PrimaryKey
     val id: String,
@@ -35,29 +33,5 @@ data class ContactEntity(
             group = contact.group,
             variables = contact.variables
         )
-    }
-}
-
-class ContactConverters {
-    private val gson = Gson()
-    private val mapType: Type = object : TypeToken<Map<String, String>>() {}.type
-
-    @TypeConverter
-    fun fromString(value: String?): Map<String, String> {
-        if (value.isNullOrEmpty()) return emptyMap()
-        return try {
-            gson.fromJson<Map<String, String>>(value, mapType) ?: emptyMap()
-        } catch (e: Exception) {
-            emptyMap()
-        }
-    }
-
-    @TypeConverter
-    fun fromMap(map: Map<String, String>?): String {
-        return try {
-            gson.toJson(map ?: emptyMap<String, String>())
-        } catch (e: Exception) {
-            "{}"
-        }
     }
 }

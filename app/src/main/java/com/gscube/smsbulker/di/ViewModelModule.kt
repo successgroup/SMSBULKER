@@ -19,6 +19,9 @@ import dagger.multibindings.IntoMap
 @ContributesTo(AppScope::class)
 abstract class ViewModelModule {
     @Binds
+    abstract fun bindViewModelFactory(factory: ViewModelFactory): ViewModelProvider.Factory
+
+    @Binds
     @IntoMap
     @ViewModelKey(AuthViewModel::class)
     abstract fun bindAuthViewModel(viewModel: AuthViewModel): ViewModel

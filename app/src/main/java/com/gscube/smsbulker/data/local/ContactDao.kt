@@ -15,6 +15,9 @@ interface ContactDao {
     suspend fun insertContact(contact: ContactEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertContactSync(contact: ContactEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertContacts(contacts: List<ContactEntity>)
 
     @Delete

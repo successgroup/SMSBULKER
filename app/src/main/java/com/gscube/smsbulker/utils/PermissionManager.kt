@@ -17,12 +17,21 @@ class PermissionManager @Inject constructor(
     @Named("applicationContext") private val context: Context
 ) : IPermissionManager {
     override fun checkStoragePermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            true // Android 10 and above use scoped storage
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            true // Android 11 and above use scoped storage
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
         } else {
             ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
             ) == PackageManager.PERMISSION_GRANTED
         }
     }
@@ -31,20 +40,30 @@ class PermissionManager @Inject constructor(
         return ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED &&
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.WRITE_CONTACTS
         ) == PackageManager.PERMISSION_GRANTED
     }
 
     override fun getRequiredPermissions(): Array<String> {
         val permissions = mutableListOf<String>()
         
+        // Always check contacts permissions when needed
         if (!checkContactsPermission()) {
             permissions.add(Manifest.permission.READ_CONTACTS)
             permissions.add(Manifest.permission.WRITE_CONTACTS)
         }
 
-        if (!checkStoragePermission() && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        // Check storage permissions based on Android version
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            if (!checkStoragePermission()) {
+                permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                }
+            }
         }
 
         return permissions.toTypedArray()

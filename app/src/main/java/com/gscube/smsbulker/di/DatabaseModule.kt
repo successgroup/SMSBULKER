@@ -1,11 +1,11 @@
 package com.gscube.smsbulker.di
 
-import android.content.Context
+import android.app.Application
+import com.gscube.smsbulker.data.local.AppDatabase
 import com.gscube.smsbulker.data.local.TemplateDatabase
 import com.squareup.anvil.annotations.ContributesTo
 import dagger.Module
 import dagger.Provides
-import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -14,7 +14,13 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideTemplateDatabase(@Named("applicationContext") context: Context): TemplateDatabase {
-        return TemplateDatabase(context)
+    fun provideTemplateDatabase(application: Application): TemplateDatabase {
+        return TemplateDatabase(application)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAppDatabase(application: Application): AppDatabase {
+        return AppDatabase.getInstance(application)
     }
 }

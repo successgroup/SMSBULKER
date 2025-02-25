@@ -25,6 +25,8 @@ android {
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
+
+        buildConfigField("String", "API_KEY", "\"YOUR_TEST_API_KEY_HERE\"") // Replace with actual test API key
     }
 
     buildTypes {
@@ -58,6 +60,34 @@ android {
         buildConfig = true
     }
 
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    }
+
+    tasks.withType<Copy> {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+    packaging {
+        resources {
+            merges.add("kotlin/collections/collections.kotlin_builtins")
+            merges.add("kotlin/coroutines/coroutines.kotlin_builtins")
+            merges.add("kotlin/reflect/reflect.kotlin_builtins")
+            merges.add("kotlin/ranges/ranges.kotlin_builtins")
+            merges.add("kotlin/kotlin.kotlin_builtins")
+            excludes.add("META-INF/DEPENDENCIES")
+            excludes.add("META-INF/LICENSE")
+            excludes.add("META-INF/LICENSE.txt")
+            excludes.add("META-INF/license.txt")
+            excludes.add("META-INF/NOTICE")
+            excludes.add("META-INF/NOTICE.txt")
+            excludes.add("META-INF/notice.txt")
+            excludes.add("META-INF/*.kotlin_module")
+        }
+    }
+
     sourceSets {
         getByName("main") {
             java.srcDirs("src/main/java")
@@ -68,9 +98,20 @@ android {
     }
 }
 
+configurations {
+    implementation {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-compiler-embeddable")
+    }
+    runtimeOnly {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-compiler-embeddable")
+    }
+}
+
 dependencies {
     // Core Android dependencies
     implementation("androidx.core:core-ktx:1.12.0")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.22")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
@@ -83,9 +124,13 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
 
-    // Retrofit
+    // Retrofit & Moshi
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.retrofit2:converter-moshi:2.9.0")
+    implementation("com.squareup.moshi:moshi:1.15.0")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.0")
+    implementation(libs.firebase.crashlytics.buildtools)
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
 
     // Coroutines
@@ -117,15 +162,16 @@ dependencies {
     }
     implementation("androidx.recyclerview:recyclerview:1.3.2")
 
-    // Dagger
+    // Dagger & Anvil
     implementation("com.google.dagger:dagger:2.50")
     kapt("com.google.dagger:dagger-compiler:2.50")
+    implementation("com.squareup.anvil:annotations:2.4.8")
+    implementation("com.squareup.anvil:annotations-optional:2.4.8")
+    implementation("com.squareup.anvil:compiler-api:2.4.8")
+    implementation("com.squareup.anvil:compiler-utils:2.4.8")
     implementation("com.google.dagger:dagger-android:2.50")
     implementation("com.google.dagger:dagger-android-support:2.50")
     kapt("com.google.dagger:dagger-android-processor:2.50")
-
-    // Anvil for Dagger
-    implementation("com.squareup.anvil:annotations:2.4.8")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

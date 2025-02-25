@@ -29,12 +29,13 @@ class ContactsRepositoryImpl @Inject constructor(
 ) : ContactsRepository {
     private val database = AppDatabase.getInstance(context)
     private val contactDao = database.contactDao()
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
         // Load initial data if database is empty
-        CoroutineScope(Dispatchers.IO).launch {
+        coroutineScope.launch {
             try {
-                val contacts = contactDao.getAllContacts().first()
+                val contacts = contactDao.getAllContacts().firstOrNull() ?: emptyList()
                 if (contacts.isEmpty()) {
                     // Add some sample contacts
                     val sampleContacts = listOf(
@@ -90,120 +91,63 @@ class ContactsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun importContactsFromCsv(uri: Uri) = withContext(Dispatchers.IO) {
+    override suspend fun importContactsFromCsv(uri: Uri): List<Contact> = withContext(Dispatchers.IO) {
+        val importedContacts = mutableListOf<Contact>()
+        
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             val reader = BufferedReader(InputStreamReader(inputStream))
-            val contacts = mutableListOf<Contact>()
             var headers: List<String>? = null
             var phoneIndex = -1
             var nameIndex = -1
+            var groupIndex = -1
 
             reader.forEachLine { line ->
-                if (line.isBlank()) return@forEachLine
-
-                val columns = line.split(",").map { it.trim().lowercase() }
+                val values = line.split(",").map { it.trim() }
                 
                 if (headers == null) {
-                    // Parse header row and find name and phone columns
-                    headers = columns
+                    // Parse headers
+                    headers = values
+                    phoneIndex = headers!!.indexOfFirst { it.contains("phone", ignoreCase = true) }
+                    nameIndex = headers!!.indexOfFirst { it.contains("name", ignoreCase = true) }
+                    groupIndex = headers!!.indexOfFirst { it.contains("group", ignoreCase = true) }
                     
-                    // Look for phone column - common variations
-                    phoneIndex = columns.indexOfFirst { col ->
-                        col.contains("phone") || col.contains("mobile") || 
-                        col.contains("cell") || col.contains("tel") ||
-                        col.contains("number")
-                    }
-                    
-                    // Look for name column - common variations
-                    nameIndex = columns.indexOfFirst { col ->
-                        col.contains("name") || col.contains("contact") ||
-                        col.contains("person") || col.contains("full")
-                    }
-                    
-                    // If we can't find the columns, try to find them by analyzing the data
                     if (phoneIndex == -1 || nameIndex == -1) {
-                        // We'll set these in the first data row
-                        return@forEachLine
+                        throw IllegalArgumentException("CSV must have 'name' and 'phone' columns")
                     }
-                    return@forEachLine
-                }
-
-                // For the first data row, if we haven't found the columns yet, try to detect them
-                if ((phoneIndex == -1 || nameIndex == -1) && columns.isNotEmpty()) {
-                    // Look for a column that matches phone number pattern
-                    phoneIndex = columns.indexOfFirst { col ->
-                        col.replace("[^0-9+]".toRegex(), "").length >= 10
-                    }
-                    
-                    // If still not found, look for any column with numbers
-                    if (phoneIndex == -1) {
-                        phoneIndex = columns.indexOfFirst { col ->
-                            col.any { it.isDigit() }
+                } else {
+                    // Parse contact data
+                    if (values.size >= maxOf(phoneIndex, nameIndex) + 1) {
+                        val phone = values[phoneIndex].trim('"', ' ')
+                        val name = values[nameIndex].trim('"', ' ')
+                        val group = if (groupIndex != -1 && values.size > groupIndex) {
+                            values[groupIndex].trim('"', ' ')
+                        } else ""
+                        
+                        // Create variables map from other columns
+                        val variables = mutableMapOf<String, String>()
+                        headers!!.forEachIndexed { index, header ->
+                            if (index != phoneIndex && index != nameIndex && index != groupIndex && values.size > index) {
+                                variables[header] = values[index].trim('"', ' ')
+                            }
                         }
-                    }
-                    
-                    // For name, take any non-phone column
-                    nameIndex = columns.indices.firstOrNull { it != phoneIndex } ?: 0
-                    
-                    // If we still couldn't find a phone column, just take any other column
-                    if (phoneIndex == -1) {
-                        phoneIndex = columns.indices.firstOrNull { it != nameIndex } ?: 1
-                    }
-                }
-
-                try {
-                    // Get phone and name from detected columns, with fallback to first available columns
-                    val phone = when {
-                        phoneIndex >= 0 && phoneIndex < columns.size -> columns[phoneIndex]
-                        columns.size > 1 -> columns[1]
-                        columns.isNotEmpty() -> columns[0]
-                        else -> return@forEachLine
-                    }.replace("[^0-9+]".toRegex(), "")
-
-                    val name = when {
-                        nameIndex >= 0 && nameIndex < columns.size -> columns[nameIndex]
-                        columns.size > 1 -> columns[0]
-                        columns.isNotEmpty() -> columns[0]
-                        else -> return@forEachLine
-                    }
-
-                    // Skip if phone or name is empty
-                    if (phone.isBlank() || name.isBlank()) return@forEachLine
-
-                    // Get additional fields as variables
-                    val variables = mutableMapOf<String, String>()
-                    headers!!.forEachIndexed { index, header ->
-                        if (index != phoneIndex && index != nameIndex && 
-                            index < columns.size && 
-                            header.isNotBlank() &&
-                            columns[index].isNotBlank()
-                        ) {
-                            variables[header] = columns[index]
-                        }
-                    }
-
-                    contacts.add(
-                        Contact(
+                        
+                        val contact = Contact(
                             id = UUID.randomUUID().toString(),
-                            phoneNumber = phone,
                             name = name,
-                            group = variables.remove("group") ?: "",
+                            phoneNumber = phone,
+                            group = group,
                             variables = variables
                         )
-                    )
-                } catch (e: Exception) {
-                    // Skip invalid rows instead of throwing error
-                    return@forEachLine
+                        
+                        // Save to database using non-suspending function
+                        contactDao.insertContactSync(ContactEntity.fromContact(contact))
+                        importedContacts.add(contact)
+                    }
                 }
             }
-
-            if (contacts.isEmpty()) {
-                throw IllegalArgumentException("No valid contacts found in the CSV file. Please ensure the file contains name and phone number columns.")
-            }
-
-            // Save valid contacts to local storage
-            contacts.forEach { saveContact(it) }
-        } ?: throw IllegalArgumentException("Could not open CSV file")
+        } ?: throw IllegalArgumentException("Could not read CSV file")
+        
+        importedContacts
     }
 
     override suspend fun exportContactsToCsv() = withContext(Dispatchers.IO) {

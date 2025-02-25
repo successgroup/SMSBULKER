@@ -64,6 +64,7 @@ class AccountFragment : Fragment() {
                                     textEmail.text = profile.email
                                     textPhone.text = profile.phone
                                     textCompany.text = profile.company ?: "Not specified"
+                                    textCompanyAlias.text = "Sender ID: ${profile.companyAlias}"
                                     textApiKey.text = profile.apiKey
                                 }
                             }.onFailure { error ->

@@ -1,9 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+
     <item
-        android:id="@+id/action_import_csv"
-        android:icon="@android:drawable/ic_menu_upload"
-        android:title="@string/import_csv"
+        android:id="@+id/action_select_all"
+        android:icon="@drawable/ic_select_all"
+        android:title="Select All"
         app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_delete_selected"
+        android:icon="@drawable/ic_delete"
+        android:title="Delete Selected"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_send_selected"
+        android:icon="@drawable/ic_send"
+        android:title="Send Message"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_export_selected"
+        android:icon="@drawable/ic_export"
+        android:title="Export Selected"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_import"
+        android:icon="@drawable/ic_import"
+        android:title="Import Contacts"
+        app:showAsAction="never">
+        <menu>
+            <item
+                android:id="@+id/action_import_csv"
+                android:title="Import from CSV" />
+            <item
+                android:id="@+id/action_import_phone"
+                android:title="Import from Phone" />
+        </menu>
+    </item>
+
+    <item
+        android:id="@+id/action_export"
+        android:icon="@drawable/ic_export"
+        android:title="Export All"
+        app:showAsAction="never">
+        <menu>
+            <item
+                android:id="@+id/action_export_csv"
+                android:title="Export to CSV" />
+            <item
+                android:id="@+id/action_export_phone"
+                android:title="Export to Phone" />
+        </menu>
+    </item>
 </menu>
