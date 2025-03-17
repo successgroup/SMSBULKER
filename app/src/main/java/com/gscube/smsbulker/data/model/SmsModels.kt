@@ -41,7 +41,8 @@ data class BulkSmsResult(
     val status: String,
     val messageId: String? = null,
     val errorMessage: String? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val cost: Double = 0.0
 ) : Parcelable
 
 @Parcelize

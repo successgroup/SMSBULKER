@@ -9,7 +9,6 @@ data class ArkeselSmsRequest(
     @Json(name = "message") val message: String,
     @Json(name = "recipients") val recipients: Map<String, Map<String, String>>,
     @Json(name = "sandbox") val sandbox: Boolean = false,
-    @Json(name = "api_key") val apiKey: String,
     @Json(name = "schedule_time") val scheduleTime: String? = null,
     @Json(name = "callback_url") val callbackUrl: String? = null
 )

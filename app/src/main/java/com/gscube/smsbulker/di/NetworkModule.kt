@@ -5,7 +5,6 @@ import com.gscube.smsbulker.data.network.AnalyticsApiService
 import com.gscube.smsbulker.data.network.ArkeselApi
 import com.gscube.smsbulker.data.network.AuthApiService
 import com.gscube.smsbulker.data.network.BulkSmsApiService
-import com.gscube.smsbulker.data.network.SmsApiService
 import com.gscube.smsbulker.utils.SecureStorage
 import com.squareup.anvil.annotations.ContributesTo
 import com.squareup.moshi.Moshi
@@ -21,24 +20,25 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
 
-@Module
 @ContributesTo(AppScope::class)
+@Module
 object NetworkModule {
-    private const val BASE_URL = "https://sms.arkesel.com/api/v2/" // Arkesel API base URL
+    private const val BASE_URL = "https://sms.arkesel.com" // Arkesel API base URL
 
     @Provides
     @Singleton
     @Named("api_key")
-    fun provideApiKey(secureStorage: SecureStorage): String {
-        return secureStorage.getApiKey() ?: throw IllegalStateException("SMS API key not found")
+    fun provideApiKey(): String {
+        // Hardcode the API key for now
+        return "ZnhoSWFRbWhBWmpIc3N3eUNEZW8"
     }
 
     @Provides
     @Singleton
     @Named("sandbox_mode")
     fun provideSandboxMode(): Boolean {
-        // Change this to false for production
-        return true
+        // Production mode
+        return false
     }
 
     @Provides
@@ -46,7 +46,9 @@ object NetworkModule {
     fun provideAuthInterceptor(@Named("api_key") apiKey: String): Interceptor {
         return Interceptor { chain ->
             val request = chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer $apiKey")
+                .addHeader("Accept", "application/json")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("api-key", apiKey)
                 .build()
             chain.proceed(request)
         }
@@ -118,12 +120,6 @@ object NetworkModule {
     @Singleton
     fun provideBulkSmsApiService(retrofit: Retrofit): BulkSmsApiService {
         return retrofit.create(BulkSmsApiService::class.java)
-    }
-
-    @Provides
-    @Singleton
-    fun provideSmsApiService(retrofit: Retrofit): SmsApiService {
-        return retrofit.create(SmsApiService::class.java)
     }
 
     @Provides

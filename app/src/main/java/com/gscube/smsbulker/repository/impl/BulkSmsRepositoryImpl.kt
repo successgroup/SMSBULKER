@@ -2,8 +2,9 @@ package com.gscube.smsbulker.repository.impl
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.gscube.smsbulker.data.model.*
-import com.gscube.smsbulker.data.network.SmsApiService
+import com.gscube.smsbulker.data.network.ArkeselApi
 import com.gscube.smsbulker.di.AppScope
 import com.gscube.smsbulker.repository.BulkSmsRepository
 import com.gscube.smsbulker.utils.SecureStorage
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.flowOn
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.UUID
+import java.util.regex.Pattern
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -23,46 +25,78 @@ import javax.inject.Singleton
 @ContributesBinding(AppScope::class)
 class BulkSmsRepositoryImpl @Inject constructor(
     @Named("applicationContext") private val context: Context,
-    private val smsApiService: SmsApiService,
+    private val arkeselApi: ArkeselApi,
+    @Named("sandbox_mode") private val sandboxMode: Boolean,
     private val secureStorage: SecureStorage
 ) : BulkSmsRepository {
 
+    private fun convertToArkeselTemplate(template: String): String {
+        val regex = Regex("\\{(\\w+)\\}")
+        return template.replace(regex) { matchResult ->
+            val variableName = matchResult.groupValues[1]
+            "<%$variableName%>"
+        }
+    }
+
     override suspend fun sendBulkSms(request: BulkSmsRequest): Result<BulkSmsResponse> {
         return try {
-            val apiKey = secureStorage.getApiKey()
-                ?: return Result.failure(Exception("API key not found"))
-
             // Get the final message text
             val messageText = request.messageTemplate?.let { template ->
-                request.message ?: template.content
-            } ?: request.message ?: return Result.failure(Exception("No message content provided"))
+                request.message?.let { convertToArkeselTemplate(it) } ?: convertToArkeselTemplate(template.content)
+            } ?: request.message?.let { convertToArkeselTemplate(it) } ?: return Result.failure(Exception("No message content provided"))
 
-            // Send using personalized API if the message has variables
-            val response = if (request.messageTemplate?.variables?.isNotEmpty() == true) {
-                smsApiService.sendPersonalizedBulkSms(
-                    apiKey = apiKey,
-                    message = messageText,
-                    sender = request.senderId,
-                    recipients = request.recipients
-                )
+            // Create recipients map
+            val recipientsMap = if (request.messageTemplate?.variables?.isNotEmpty() == true) {
+                // For personalized messages, include variables
+                request.recipients.associate { recipient ->
+                    recipient.phoneNumber to mapOf(
+                        "number" to recipient.phoneNumber,
+                        "name" to (recipient.name ?: recipient.phoneNumber)
+                    ).plus(recipient.variables ?: emptyMap())
+                }
             } else {
-                // Use regular bulk SMS for non-personalized messages
-                smsApiService.sendBulkSms(
-                    apiKey = apiKey,
-                    recipients = request.recipients.map { it.phoneNumber },
-                    message = messageText,
-                    sender = request.senderId
-                )
+                // For regular messages, just include basic info
+                request.recipients.associate { recipient ->
+                    recipient.phoneNumber to mapOf(
+                        "number" to recipient.phoneNumber,
+                        "name" to (recipient.name ?: recipient.phoneNumber)
+                    )
+                }
             }
 
-            if (response.isSuccessful) {
-                val data = response.body() ?: throw Exception("No response data")
+            // Create the request
+            val smsRequest = ArkeselSmsRequest(
+                sender = request.senderId.takeIf { !it.isNullOrBlank() } ?: "SMSBULKER",
+                message = if (request.messageTemplate?.variables?.isNotEmpty() == true) {
+                    convertToArkeselTemplate(messageText)
+                } else {
+                    messageText
+                },
+                recipients = recipientsMap,
+                sandbox = sandboxMode
+            )
+
+            Log.d("BulkSmsRepository", "Sending request: $smsRequest")
+            
+            // Send using appropriate endpoint
+            val response = if (request.messageTemplate?.variables?.isNotEmpty() == true) {
+                arkeselApi.sendTemplateSms(smsRequest)
+            } else {
+                arkeselApi.sendSms(smsRequest)
+            }
+
+            Log.d("BulkSmsRepository", "Response code: ${response.code()}")
+            Log.d("BulkSmsRepository", "Response body: ${response.body()}")
+            Log.d("BulkSmsRepository", "Error body: ${response.errorBody()?.string()}")
+
+            if (response.isSuccessful && response.body() != null) {
+                val data = response.body()!!
                 Result.success(BulkSmsResponse(
-                    batchId = data.messageId ?: UUID.randomUUID().toString(),
-                    status = if (data.success) BatchStatus.QUEUED else BatchStatus.FAILED,
+                    batchId = data.data?.messageId ?: UUID.randomUUID().toString(),
+                    status = if (data.code == 200) BatchStatus.QUEUED else BatchStatus.FAILED,
                     totalMessages = request.recipients.size,
-                    cost = data.cost ?: 0.0,
-                    units = data.credits ?: 0,
+                    cost = data.data?.cost ?: 0.0,
+                    units = data.data?.creditsUsed ?: 0,
                     errorMessage = if (!response.isSuccessful) response.message() else null,
                     timestamp = System.currentTimeMillis()
                 ))
@@ -76,28 +110,8 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun getBatchStatus(batchId: String): Result<BatchStatus> {
         return try {
-            val apiKey = secureStorage.getApiKey()
-                ?: return Result.failure(Exception("API key not found"))
-
-            val response = smsApiService.sendBulkSms(
-                apiKey = apiKey,
-                recipients = listOf(batchId),
-                message = "status",
-                sender = "STATUS"
-            )
-
-            if (response.isSuccessful && response.body() != null) {
-                val data = response.body()!!
-                Result.success(
-                    when (SmsStatus.fromString(data.status ?: "")) {
-                        SmsStatus.SENT, SmsStatus.DELIVERED -> BatchStatus.COMPLETED
-                        SmsStatus.PENDING -> BatchStatus.PROCESSING
-                        SmsStatus.FAILED -> BatchStatus.FAILED
-                    }
-                )
-            } else {
-                Result.failure(Exception("API call failed: ${response.message()}"))
-            }
+            // For now, just return COMPLETED since v2 API doesn't have status check
+            Result.success(BatchStatus.COMPLETED)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -105,35 +119,8 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun getBatchMessageStatuses(batchId: String): Result<List<MessageStatus>> {
         return try {
-            val apiKey = secureStorage.getApiKey()
-                ?: return Result.failure(Exception("API key not found"))
-
-            val response = smsApiService.sendBulkSms(
-                apiKey = apiKey,
-                recipients = listOf(batchId),
-                message = "messages",
-                sender = "STATUS"
-            )
-
-            if (response.isSuccessful && response.body() != null) {
-                val data = response.body()!!
-                // Parse response and convert to MessageStatus list
-                Result.success(listOf(
-                    MessageStatus(
-                        messageId = data.messageId ?: "",
-                        recipient = "",
-                        status = when (SmsStatus.fromString(data.status ?: "")) {
-                            SmsStatus.SENT, SmsStatus.DELIVERED -> BatchStatus.COMPLETED
-                            SmsStatus.PENDING -> BatchStatus.PROCESSING
-                            SmsStatus.FAILED -> BatchStatus.FAILED
-                        },
-                        timestamp = System.currentTimeMillis(),
-                        errorMessage = if (!data.success) data.message else null
-                    )
-                ))
-            } else {
-                Result.failure(Exception("API call failed: ${response.message()}"))
-            }
+            // For now, return empty list since v2 API doesn't have status check
+            Result.success(emptyList())
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -141,34 +128,16 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun getMessageStatus(messageId: String): Result<MessageStatus> {
         return try {
-            val apiKey = secureStorage.getApiKey()
-                ?: return Result.failure(Exception("API key not found"))
-
-            val response = smsApiService.sendBulkSms(
-                apiKey = apiKey,
-                recipients = listOf(messageId),
-                message = "status",
-                sender = "STATUS"
-            )
-
-            if (response.isSuccessful && response.body() != null) {
-                val data = response.body()!!
-                Result.success(
-                    MessageStatus(
-                        messageId = messageId,
-                        recipient = "",
-                        status = when (SmsStatus.fromString(data.status ?: "")) {
-                            SmsStatus.SENT, SmsStatus.DELIVERED -> BatchStatus.COMPLETED
-                            SmsStatus.PENDING -> BatchStatus.PROCESSING
-                            SmsStatus.FAILED -> BatchStatus.FAILED
-                        },
-                        timestamp = System.currentTimeMillis(),
-                        errorMessage = if (!data.success) data.message else null
-                    )
+            // For now, return completed status since v2 API doesn't have status check
+            Result.success(
+                MessageStatus(
+                    messageId = messageId,
+                    recipient = "",
+                    status = BatchStatus.COMPLETED,
+                    timestamp = System.currentTimeMillis(),
+                    errorMessage = null
                 )
-            } else {
-                Result.failure(Exception("API call failed: ${response.message()}"))
-            }
+            )
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -176,25 +145,8 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun updateMessageStatus(messageId: String, status: MessageStatus): Result<Unit> {
         return try {
-            val apiKey = secureStorage.getApiKey()
-                ?: return Result.failure(Exception("API key not found"))
-
-            val response = smsApiService.sendBulkSms(
-                apiKey = apiKey,
-                recipients = listOf(messageId),
-                message = when (status.status) {
-                    BatchStatus.COMPLETED -> "DELIVERED"
-                    BatchStatus.FAILED -> "FAILED"
-                    else -> "PENDING"
-                },
-                sender = "STATUS"
-            )
-
-            if (response.isSuccessful) {
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("API call failed: ${response.message()}"))
-            }
+            // For now, just return success since v2 API doesn't have status update
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

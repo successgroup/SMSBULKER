@@ -13,7 +13,6 @@ import com.gscube.smsbulker.repository.UserRepository
 import com.gscube.smsbulker.utils.SecureStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -48,8 +47,7 @@ class AuthViewModel @Inject constructor(
             Log.d(TAG, "Found Firebase user: ${user.uid}")
             if (!secureStorage.isLoggedIn()) {
                 Log.d(TAG, "No local data found, saving auth data")
-                val apiKey = generateApiKey()
-                secureStorage.saveAuthData(user.uid, apiKey, user.email ?: "")
+                secureStorage.saveAuthData(user.uid, "ZnhoSWFRbWhBWmpIc3N3eUNEZW8", user.email ?: "")
             }
         } ?: run {
             Log.d(TAG, "No Firebase user found")
@@ -82,8 +80,7 @@ class AuthViewModel @Inject constructor(
                 result.user?.let { user ->
                     try {
                         Log.d(TAG, "Login successful for user: ${user.uid}")
-                        val apiKey = generateApiKey()
-                        secureStorage.saveAuthData(user.uid, apiKey, email)
+                        secureStorage.saveAuthData(user.uid, "ZnhoSWFRbWhBWmpIc3N3eUNEZW8", email)
                         _authSuccess.postValue(true)
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to save auth data: ${e.message}")
@@ -131,10 +128,7 @@ class AuthViewModel @Inject constructor(
                 val result = auth.createUserWithEmailAndPassword(email, password).await()
                 result.user?.let { user ->
                     try {
-                        // Generate API key for new user
-                        val apiKey = generateApiKey()
-                        secureStorage.saveAuthData(user.uid, apiKey, email)
-                        // In a real app, you would also save company name and phone to Firestore
+                        secureStorage.saveAuthData(user.uid, "ZnhoSWFRbWhBWmpIc3N3eUNEZW8", email)
                         _authSuccess.value = true
                     } catch (e: Exception) {
                         _error.value = "Failed to save user data"
@@ -185,10 +179,6 @@ class AuthViewModel @Inject constructor(
         val isLoggedIn = firebaseUser != null && secureStorage.isLoggedIn()
         Log.d(TAG, "Checking login state - Firebase: ${firebaseUser != null}, Local: ${secureStorage.isLoggedIn()}, Final: $isLoggedIn")
         return isLoggedIn
-    }
-
-    private fun generateApiKey(): String {
-        return UUID.randomUUID().toString()
     }
 
     fun clearError() {

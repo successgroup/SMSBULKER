@@ -6,10 +6,11 @@ import com.gscube.smsbulker.data.model.*
 import com.gscube.smsbulker.repository.SmsRepository
 import com.gscube.smsbulker.repository.UserRepository
 import com.gscube.smsbulker.di.AppScope
-import com.squareup.anvil.annotations.ContributesBinding
+import com.squareup.anvil.annotations.ContributesMultibinding
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +26,7 @@ data class SendMessageUiState(
 )
 
 @Singleton
+@ContributesMultibinding(AppScope::class)
 class SendMessageViewModel @Inject constructor(
     private val smsRepository: SmsRepository,
     private val userRepository: UserRepository
@@ -53,7 +55,7 @@ class SendMessageViewModel @Inject constructor(
     }
 
     fun setTemplate(template: MessageTemplate) {
-        _uiState.update { it.copy(selectedTemplate = template, message = "") }
+        _uiState.update { it.copy(selectedTemplate = template, message = template.content) }
     }
 
     fun setSenderId(senderId: String) {
@@ -71,7 +73,7 @@ class SendMessageViewModel @Inject constructor(
             return
         }
 
-        if (currentState.selectedTemplate == null && currentState.message.isBlank()) {
+        if (currentState.message.isBlank()) {
             setError("Please enter a message or select a template")
             return
         }
@@ -93,7 +95,7 @@ class SendMessageViewModel @Inject constructor(
                     }
                     smsRepository.sendPersonalizedSms(
                         recipients = personalizedRecipients,
-                        messageTemplate = currentState.selectedTemplate.content,
+                        messageTemplate = currentState.message,
                         sender = currentState.senderId
                     )
                 } else {
@@ -106,11 +108,12 @@ class SendMessageViewModel @Inject constructor(
                 }
 
                 messageFlow.collect { results ->
-                    val successful = results.count { SmsStatus.fromString(it.status) == SmsStatus.DELIVERED }
-                    val failed = results.count { SmsStatus.fromString(it.status) == SmsStatus.FAILED }
+                    val successful = results.count { it.status == "DELIVERED" }
+                    val failed = results.count { it.status == "FAILED" }
+                    val totalCost = results.sumOf { it.cost }
                     
                     if (successful > 0) {
-                        setSuccess("Successfully sent $successful messages${if (failed > 0) ", $failed failed" else ""}")
+                        setSuccess("Successfully sent $successful messages${if (failed > 0) ", $failed failed" else ""}. Total cost: $totalCost credits")
                     } else {
                         setError("Failed to send messages")
                     }
