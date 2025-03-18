@@ -193,6 +193,14 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun removeRecipient(recipient: Recipient) {
+        _state.update { currentState ->
+            currentState.copy(
+                recipients = currentState.recipients.filter { it != recipient }
+            )
+        }
+    }
+
     fun sendBulkSms() {
         val currentState = state.value
         val message = currentState.selectedTemplate?.content ?: return

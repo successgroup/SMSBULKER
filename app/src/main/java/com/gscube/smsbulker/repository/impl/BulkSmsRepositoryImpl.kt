@@ -66,7 +66,7 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
             // Create the request
             val smsRequest = ArkeselSmsRequest(
-                sender = request.senderId.takeIf { !it.isNullOrBlank() } ?: "SMSBULKER",
+                sender = request.senderId.takeIf { !it.isNullOrBlank() } ?: "GSCube",
                 message = if (request.messageTemplate?.variables?.isNotEmpty() == true) {
                     convertToArkeselTemplate(messageText)
                 } else {

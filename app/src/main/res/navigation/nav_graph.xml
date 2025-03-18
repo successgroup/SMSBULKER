@@ -129,11 +129,19 @@
         tools:layout="@layout/fragment_csv_editor">
         <argument
             android:name="csvUri"
-            app:argType="android.net.Uri" />
+            app:argType="android.net.Uri"
+            app:nullable="true"
+            android:defaultValue="@null" />
     </fragment>
 
     <action
         android:id="@+id/action_global_to_csvEditor"
-        app:destination="@id/csvEditorFragment" />
+        app:destination="@id/csvEditorFragment">
+        <argument
+            android:name="csvUri"
+            app:argType="android.net.Uri"
+            app:nullable="true"
+            android:defaultValue="@null" />
+    </action>
 
 </navigation> 

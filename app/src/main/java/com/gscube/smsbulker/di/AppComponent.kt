@@ -15,7 +15,6 @@ import com.gscube.smsbulker.ui.csvEditor.CsvEditorFragment
 import com.gscube.smsbulker.ui.home.HomeFragment
 import com.gscube.smsbulker.ui.templates.PreviewTemplateDialog
 import com.gscube.smsbulker.ui.templates.TemplatesFragment
-import com.gscube.smsbulker.ui.test.TestSmsActivity
 import com.squareup.anvil.annotations.MergeComponent
 import dagger.BindsInstance
 import dagger.Component
@@ -42,7 +41,6 @@ interface AppComponent : ViewModelComponent {
     fun inject(fragment: ContactsFragment)
     fun inject(fragment: CsvEditorFragment)
     fun inject(dialog: PreviewTemplateDialog)
-    fun inject(activity: TestSmsActivity)
 
     @Component.Factory
     interface Factory {

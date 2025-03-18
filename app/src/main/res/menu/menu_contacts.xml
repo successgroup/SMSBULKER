@@ -6,6 +6,8 @@
         android:id="@+id/action_select_all"
         android:icon="@drawable/ic_select_all"
         android:title="Select All"
+        android:checkable="true"
+        app:iconTint="@color/white"
         app:showAsAction="ifRoom" />
 
     <item
@@ -32,30 +34,12 @@
     <item
         android:id="@+id/action_import"
         android:icon="@drawable/ic_import"
-        android:title="Import Contacts"
-        app:showAsAction="never">
-        <menu>
-            <item
-                android:id="@+id/action_import_csv"
-                android:title="Import from CSV" />
-            <item
-                android:id="@+id/action_import_phone"
-                android:title="Import from Phone" />
-        </menu>
-    </item>
+        android:title="Import"
+        app:showAsAction="never" />
 
     <item
         android:id="@+id/action_export"
         android:icon="@drawable/ic_export"
         android:title="Export All"
-        app:showAsAction="never">
-        <menu>
-            <item
-                android:id="@+id/action_export_csv"
-                android:title="Export to CSV" />
-            <item
-                android:id="@+id/action_export_phone"
-                android:title="Export to Phone" />
-        </menu>
-    </item>
+        app:showAsAction="never" />
 </menu>

@@ -34,9 +34,19 @@
                 android:id="@+id/phoneNumberText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
                 android:textAppearance="?attr/textAppearanceBody2"
                 android:textColor="?android:textColorSecondary"
                 tools:text="+1234567890" />
+
+            <ImageButton
+                android:id="@+id/removeButton"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Remove recipient"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="?attr/colorError" />
 
         </LinearLayout>
 

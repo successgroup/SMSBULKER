@@ -9,7 +9,9 @@ import com.google.android.material.chip.Chip
 import com.gscube.smsbulker.data.model.Recipient
 import com.gscube.smsbulker.databinding.ItemRecipientBinding
 
-class RecipientsAdapter : ListAdapter<Recipient, RecipientsAdapter.ViewHolder>(RecipientDiffCallback()) {
+class RecipientsAdapter(
+    private val onRemoveClick: (Recipient) -> Unit
+) : ListAdapter<Recipient, RecipientsAdapter.ViewHolder>(RecipientDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemRecipientBinding.inflate(
@@ -32,6 +34,11 @@ class RecipientsAdapter : ListAdapter<Recipient, RecipientsAdapter.ViewHolder>(R
             binding.apply {
                 phoneNumberText.text = recipient.phoneNumber
                 nameText.text = recipient.name ?: "No Name"
+
+                // Set up remove button click listener
+                removeButton.setOnClickListener {
+                    onRemoveClick(recipient)
+                }
 
                 // Clear existing chips
                 variablesChipGroup.removeAllViews()

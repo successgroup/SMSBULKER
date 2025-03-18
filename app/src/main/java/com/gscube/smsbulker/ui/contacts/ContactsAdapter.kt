@@ -49,8 +49,10 @@ class ContactsAdapter(
         onSelectionChanged(selectedContacts)
     }
 
+    fun areAllSelected(): Boolean = selectedContacts.size == currentList.size
+
     fun toggleSelection() {
-        if (selectedContacts.size == currentList.size) {
+        if (areAllSelected()) {
             deselectAll()
         } else {
             selectAll()

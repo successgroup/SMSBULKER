@@ -30,6 +30,7 @@ import com.gscube.smsbulker.data.model.Contact
 import com.gscube.smsbulker.databinding.FragmentContactsBinding
 import com.gscube.smsbulker.databinding.FragmentEditContactBinding
 import com.gscube.smsbulker.SmsBulkerApplication
+import com.gscube.smsbulker.ui.csvEditor.CsvEditorFragmentArgs
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -79,6 +80,24 @@ class ContactsFragment : Fragment() {
                 viewModel.importContactsFromCsv(selectedUri)
             } catch (e: Exception) {
                 Snackbar.make(binding.root, "Failed to import CSV: ${e.message}", Snackbar.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private val csvEditorFilePicker = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { selectedUri ->
+            try {
+                // Take persistable permission
+                requireContext().contentResolver.takePersistableUriPermission(
+                    selectedUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                val args = bundleOf("csvUri" to selectedUri)
+                findNavController().navigate(R.id.action_global_to_csvEditor, args)
+            } catch (e: Exception) {
+                Snackbar.make(binding.root, "Failed to open CSV: ${e.message}", Snackbar.LENGTH_LONG).show()
             }
         }
     }
@@ -188,6 +207,9 @@ class ContactsFragment : Fragment() {
         
         // Show/hide selection actions based on selection state
         val hasSelection = contactsAdapter.getSelectedContacts().isNotEmpty()
+        val selectAllItem = menu.findItem(R.id.action_select_all)
+        selectAllItem?.isChecked = hasSelection && contactsAdapter.areAllSelected()
+        
         menu.findItem(R.id.action_delete_selected)?.isVisible = hasSelection
         menu.findItem(R.id.action_send_selected)?.isVisible = hasSelection
         menu.findItem(R.id.action_export_selected)?.isVisible = hasSelection
@@ -198,6 +220,7 @@ class ContactsFragment : Fragment() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_select_all -> {
+                item.isChecked = !item.isChecked
                 contactsAdapter.toggleSelection()
                 true
             }
@@ -213,12 +236,26 @@ class ContactsFragment : Fragment() {
                 showExportDialog(contactsAdapter.getSelectedContacts().toList())
                 true
             }
-            R.id.action_import_csv -> {
+            R.id.action_import -> {
                 showImportDialog()
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun showImportDialog() {
+        val options = arrayOf("Import from CSV", "Import from Phone", "Edit CSV before Import")
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Import Contacts")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> checkPermissionsAndImportCsv()
+                    1 -> checkContactsPermissionAndImport()
+                    2 -> csvEditorFilePicker.launch(arrayOf("text/csv", "text/comma-separated-values"))
+                }
+            }
+            .show()
     }
 
     private fun showDeleteConfirmationDialog(contacts: List<Contact>) {
@@ -243,9 +280,10 @@ class ContactsFragment : Fragment() {
     }
 
     private fun showExportDialog(contacts: List<Contact>) {
+        val options = arrayOf("Export to CSV", "Export to Phone Contacts")
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Export Contacts")
-            .setItems(arrayOf("Export to CSV", "Export to Phone")) { _, which ->
+            .setItems(options) { _, which ->
                 when (which) {
                     0 -> exportContactsToCSV(contacts)
                     1 -> exportContactsToPhone(contacts)
@@ -263,6 +301,11 @@ class ContactsFragment : Fragment() {
     }
 
     private fun exportContactsToPhone(contacts: List<Contact>) {
+        if (contacts.isEmpty()) {
+            Snackbar.make(binding.root, "No contacts selected to export", Snackbar.LENGTH_SHORT).show()
+            return
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissionLauncher.launch(arrayOf(Manifest.permission.WRITE_CONTACTS))
         } else {
@@ -307,18 +350,6 @@ class ContactsFragment : Fragment() {
         }
     }
 
-    private fun showImportDialog() {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Import Contacts")
-            .setItems(arrayOf("Import from Phone", "Import from CSV")) { _, which ->
-                when (which) {
-                    0 -> checkPermissionsAndImportContacts()
-                    1 -> checkPermissionsAndImportCsv()
-                }
-            }
-            .show()
-    }
-
     private fun checkPermissionsAndImportCsv() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             csvFilePicker.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv"))
@@ -334,7 +365,7 @@ class ContactsFragment : Fragment() {
         }
     }
 
-    private fun checkPermissionsAndImportContacts() {
+    private fun checkContactsPermissionAndImport() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissionLauncher.launch(arrayOf(Manifest.permission.READ_CONTACTS))
         } else {

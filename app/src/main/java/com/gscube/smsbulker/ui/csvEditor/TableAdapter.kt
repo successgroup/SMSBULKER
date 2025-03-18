@@ -7,6 +7,7 @@ import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.evrencoskun.tableview.TableView
 import com.evrencoskun.tableview.adapter.AbstractTableAdapter
@@ -21,8 +22,6 @@ class TableAdapter(
     private var csvData: CsvData? = null
     private var editMode = false
     private var table: TableView? = null
-    private var sortState = SortState.UNSORTED
-    private var sortedColumnIndex = -1
 
     fun attachToTable(tableView: TableView) {
         table = tableView
@@ -69,7 +68,7 @@ class TableAdapter(
     }
 
     override fun onCreateCellViewHolder(parent: ViewGroup, viewType: Int): AbstractViewHolder {
-        val editText = android.widget.EditText(context).apply {
+        val editText = EditText(context).apply {
             setPadding(20, 10, 20, 10)
             textSize = 14f
             setTextColor(Color.WHITE)
@@ -101,11 +100,12 @@ class TableAdapter(
     }
 
     override fun onCreateColumnHeaderViewHolder(parent: ViewGroup, viewType: Int): AbstractViewHolder {
-        val textView = android.widget.TextView(context).apply {
+        val textView = TextView(context).apply {
             setPadding(20, 10, 20, 10)
             textSize = 14f
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.rgb(50, 50, 50))
+            isClickable = false // Disable clicking on headers
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -119,7 +119,7 @@ class TableAdapter(
     }
 
     override fun onBindColumnHeaderViewHolder(holder: AbstractViewHolder, columnHeaderItemModel: String?, columnPosition: Int) {
-        val textView = holder.itemView as android.widget.TextView
+        val textView = holder.itemView as TextView
         textView.text = columnHeaderItemModel ?: ""
     }
 
@@ -128,13 +128,12 @@ class TableAdapter(
     }
 
     override fun onCreateCornerView(parent: ViewGroup): View {
-        // Create a simple view for the corner (top-left cell)
         return View(context).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setBackgroundColor(Color.rgb(240, 240, 240)) // Match header background
+            setBackgroundColor(Color.rgb(50, 50, 50))
         }
     }
 
@@ -143,7 +142,6 @@ class TableAdapter(
             val editText = cellView.itemView as EditText
             editText.isEnabled = true
             editText.requestFocus()
-            // Don't force cursor position
         }
     }
 
@@ -152,50 +150,7 @@ class TableAdapter(
     override fun onCellLongPressed(cellView: RecyclerView.ViewHolder, columnPosition: Int, rowPosition: Int) {}
 
     override fun onColumnHeaderClicked(columnHeaderView: RecyclerView.ViewHolder, columnPosition: Int) {
-        if (sortedColumnIndex == columnPosition) {
-            // Toggle sort state for the same column
-            sortState = when (sortState) {
-                SortState.UNSORTED -> SortState.ASCENDING
-                SortState.ASCENDING -> SortState.DESCENDING
-                SortState.DESCENDING -> SortState.UNSORTED
-            }
-        } else {
-            // Start with ascending sort for new column
-            sortedColumnIndex = columnPosition
-            sortState = SortState.ASCENDING
-        }
-
-        csvData?.let { data ->
-            when (sortState) {
-                SortState.ASCENDING -> {
-                    val sortedRows = data.rows.sortedBy { it.getOrNull(columnPosition) }
-                    setAllItems(
-                        data.headers.map { it as String? }.toMutableList(),
-                        mutableListOf(),
-                        sortedRows.map { row -> row.map { it as String? }.toMutableList() }.toMutableList()
-                    )
-                }
-                SortState.DESCENDING -> {
-                    val sortedRows = data.rows.sortedByDescending { it.getOrNull(columnPosition) }
-                    setAllItems(
-                        data.headers.map { it as String? }.toMutableList(),
-                        mutableListOf(),
-                        sortedRows.map { row -> row.map { it as String? }.toMutableList() }.toMutableList()
-                    )
-                }
-                SortState.UNSORTED -> {
-                    // Reset to original order
-                    setAllItems(
-                        data.headers.map { it as String? }.toMutableList(),
-                        mutableListOf(),
-                        data.rows.map { row -> row.map { it as String? }.toMutableList() }.toMutableList()
-                    )
-                }
-            }
-        }
-
-        // Update the sort state icon
-        table?.sortColumn(columnPosition, sortState)
+        // Do nothing - sorting disabled
     }
 
     override fun onColumnHeaderDoubleClicked(columnHeaderView: RecyclerView.ViewHolder, columnPosition: Int) {}

@@ -94,6 +94,14 @@ class CsvEditorViewModel @Inject constructor(
         _csvData.value = updatedData
     }
 
+    fun createEmptyTable() {
+        _csvData.value = CsvData(
+            fileName = "new_contacts.csv",
+            headers = listOf("Name", "Phone Number", "Email"),
+            rows = mutableListOf(mutableListOf("", "", ""))
+        )
+    }
+
     fun clearError() {
         _error.value = null
     }

@@ -89,7 +89,7 @@ class SmsRepositoryImpl @Inject constructor(
         }
 
         val request = ArkeselSmsRequest(
-            sender = sender ?: "SMSBULKER",
+            sender = sender ?: "GSCube",
             message = if (message.contains("{")) {
                 convertToArkeselTemplate(message)
             } else {

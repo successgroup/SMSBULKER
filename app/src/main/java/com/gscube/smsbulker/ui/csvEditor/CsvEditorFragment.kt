@@ -207,7 +207,12 @@ class CsvEditorFragment : Fragment() {
     }
 
     private fun loadCsvFile() {
-        viewModel.loadCsv(args.csvUri)
+        args.csvUri?.let { uri ->
+            viewModel.loadCsv(uri)
+        } ?: run {
+            // No URI provided, start with empty table
+            viewModel.createEmptyTable()
+        }
     }
 
     override fun onDestroyView() {

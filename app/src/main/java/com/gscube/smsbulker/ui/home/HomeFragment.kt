@@ -134,7 +134,9 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        recipientsAdapter = RecipientsAdapter()
+        recipientsAdapter = RecipientsAdapter { recipient ->
+            viewModel.removeRecipient(recipient)
+        }
         binding.recipientsRecyclerView.apply {
             adapter = recipientsAdapter
             layoutManager = LinearLayoutManager(requireContext())
