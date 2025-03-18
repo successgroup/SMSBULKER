@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    
+    <!-- Blue Chat Bubble -->
+    <path
+        android:name="blueBubble"
+        android:fillType="evenOdd"
+        android:pathData="M100,150C128.72,150 152,126.72 152,98C152,69.28 128.72,46 100,46C71.28,46 48,69.28 48,98C48,109.68 51.8,120.48 58.12,129.24L52,158L80.76,151.88C86.76,149.32 93.24,148 100,148C100,149.34 100,150 100,150Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="48"
+                android:startY="46"
+                android:endX="152"
+                android:endY="150"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF4FC3F7"/>
+                <item android:offset="1" android:color="#FF2196F3"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Orange Chat Bubble -->
+    <path
+        android:name="orangeBubble"
+        android:fillType="evenOdd"
+        android:pathData="M100,54C71.28,54 48,77.28 48,106C48,117.68 51.8,128.48 58.12,137.24L52,166L80.76,159.88C86.76,157.32 93.24,156 100,156C128.72,156 152,132.72 152,104C152,75.28 128.72,52 100,52C100,53.34 100,54 100,54Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="48"
+                android:startY="52"
+                android:endX="152"
+                android:endY="156"
+                android:type="linear">
+                <item android:offset="0" android:color="#FFFF9800"/>
+                <item android:offset="1" android:color="#FFF57C00"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
