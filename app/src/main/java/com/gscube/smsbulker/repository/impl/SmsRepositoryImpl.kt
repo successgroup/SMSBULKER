@@ -58,20 +58,28 @@ class SmsRepositoryImpl @Inject constructor(
 
         if (response.isSuccessful && response.body() != null) {
             val responseBody = response.body()!!
-            emit(BulkSmsResult(
-                messageId = responseBody.data?.messageId ?: "",
-                recipient = recipient,
-                status = if (responseBody.code == 200) "DELIVERED" else "FAILED",
-                timestamp = System.currentTimeMillis(),
-                cost = responseBody.data?.cost ?: 0.0
-            ))
+            if (responseBody.status == "success" && responseBody.data.isNotEmpty()) {
+                val result = responseBody.data.first()
+                emit(BulkSmsResult(
+                    messageId = result.id,
+                    recipient = result.recipient,
+                    status = "DELIVERED",
+                    timestamp = System.currentTimeMillis()
+                ))
+            } else {
+                emit(BulkSmsResult(
+                    messageId = "",
+                    recipient = recipient,
+                    status = "FAILED",
+                    timestamp = System.currentTimeMillis()
+                ))
+            }
         } else {
             emit(BulkSmsResult(
                 messageId = "",
                 recipient = recipient,
                 status = "FAILED",
-                timestamp = System.currentTimeMillis(),
-                cost = 0.0
+                timestamp = System.currentTimeMillis()
             ))
         }
     }
@@ -107,23 +115,37 @@ class SmsRepositoryImpl @Inject constructor(
 
         if (response.isSuccessful && response.body() != null) {
             val responseBody = response.body()!!
-            emit(recipients.map { recipient ->
-                BulkSmsResult(
-                    messageId = responseBody.data?.messageId ?: "",
-                    recipient = recipient,
-                    status = if (responseBody.code == 200) "DELIVERED" else "FAILED",
-                    timestamp = System.currentTimeMillis(),
-                    cost = responseBody.data?.cost?.div(recipients.size) ?: 0.0
-                )
-            })
+            if (responseBody.status == "success") {
+                // Create a map of recipient to message ID for quick lookup
+                val recipientToMessageId = responseBody.data.associate { 
+                    it.recipient to it.id 
+                }
+                
+                emit(recipients.map { recipient ->
+                    BulkSmsResult(
+                        messageId = recipientToMessageId[recipient] ?: "",
+                        recipient = recipient,
+                        status = "DELIVERED",
+                        timestamp = System.currentTimeMillis()
+                    )
+                })
+            } else {
+                emit(recipients.map { recipient ->
+                    BulkSmsResult(
+                        messageId = "",
+                        recipient = recipient,
+                        status = "FAILED",
+                        timestamp = System.currentTimeMillis()
+                    )
+                })
+            }
         } else {
             emit(recipients.map { recipient ->
                 BulkSmsResult(
                     messageId = "",
                     recipient = recipient,
                     status = "FAILED",
-                    timestamp = System.currentTimeMillis(),
-                    cost = 0.0
+                    timestamp = System.currentTimeMillis()
                 )
             })
         }
@@ -156,23 +178,37 @@ class SmsRepositoryImpl @Inject constructor(
 
         if (response.isSuccessful && response.body() != null) {
             val responseBody = response.body()!!
-            emit(recipients.map { (phoneNumber, _) ->
-                BulkSmsResult(
-                    messageId = responseBody.data?.messageId ?: "",
-                    recipient = phoneNumber,
-                    status = if (responseBody.code == 200) "DELIVERED" else "FAILED",
-                    timestamp = System.currentTimeMillis(),
-                    cost = responseBody.data?.cost?.div(recipients.size) ?: 0.0
-                )
-            })
+            if (responseBody.status == "success") {
+                // Create a map of recipient to message ID for quick lookup
+                val recipientToMessageId = responseBody.data.associate { 
+                    it.recipient to it.id 
+                }
+                
+                emit(recipients.map { (phoneNumber, _) ->
+                    BulkSmsResult(
+                        messageId = recipientToMessageId[phoneNumber] ?: "",
+                        recipient = phoneNumber,
+                        status = "DELIVERED",
+                        timestamp = System.currentTimeMillis()
+                    )
+                })
+            } else {
+                emit(recipients.map { (phoneNumber, _) ->
+                    BulkSmsResult(
+                        messageId = "",
+                        recipient = phoneNumber,
+                        status = "FAILED",
+                        timestamp = System.currentTimeMillis()
+                    )
+                })
+            }
         } else {
             emit(recipients.map { (phoneNumber, _) ->
                 BulkSmsResult(
                     messageId = "",
                     recipient = phoneNumber,
                     status = "FAILED",
-                    timestamp = System.currentTimeMillis(),
-                    cost = 0.0
+                    timestamp = System.currentTimeMillis()
                 )
             })
         }

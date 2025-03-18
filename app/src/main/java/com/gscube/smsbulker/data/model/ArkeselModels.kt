@@ -16,16 +16,11 @@ data class ArkeselSmsRequest(
 @JsonClass(generateAdapter = true)
 data class ArkeselSmsResponse(
     @Json(name = "status") val status: String,
-    @Json(name = "code") val code: Int,
-    @Json(name = "message") val message: String,
-    @Json(name = "data") val data: ArkeselSmsResponseData? = null
+    @Json(name = "data") val data: List<ArkeselMessageResult>
 )
 
 @JsonClass(generateAdapter = true)
-data class ArkeselSmsResponseData(
-    @Json(name = "request_id") val requestId: String,
-    @Json(name = "message_id") val messageId: String,
-    @Json(name = "status") val status: String,
-    @Json(name = "cost") val cost: Double,
-    @Json(name = "credits_used") val creditsUsed: Int
+data class ArkeselMessageResult(
+    @Json(name = "recipient") val recipient: String,
+    @Json(name = "id") val id: String
 )

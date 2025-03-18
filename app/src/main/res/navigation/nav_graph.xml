@@ -15,6 +15,9 @@
             app:argType="com.gscube.smsbulker.data.model.MessageTemplate"
             app:nullable="true"
             android:defaultValue="@null" />
+        <action
+            android:id="@+id/action_homeFragment_to_settingsFragment"
+            app:destination="@id/settingsFragment" />
     </fragment>
 
     <fragment
@@ -134,6 +137,16 @@
             android:defaultValue="@null" />
     </fragment>
 
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.gscube.smsbulker.ui.settings.SettingsFragment"
+        android:label="Settings" />
+
+    <fragment
+        android:id="@+id/nav_settings"
+        android:name="com.gscube.smsbulker.ui.settings.SettingsFragment"
+        android:label="Settings" />
+
     <action
         android:id="@+id/action_global_to_csvEditor"
         app:destination="@id/csvEditorFragment">
@@ -144,4 +157,4 @@
             android:defaultValue="@null" />
     </action>
 
-</navigation> 
+</navigation>

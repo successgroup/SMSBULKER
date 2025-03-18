@@ -13,6 +13,7 @@ import com.gscube.smsbulker.ui.auth.SignupFragment
 import com.gscube.smsbulker.ui.contacts.ContactsFragment
 import com.gscube.smsbulker.ui.csvEditor.CsvEditorFragment
 import com.gscube.smsbulker.ui.home.HomeFragment
+import com.gscube.smsbulker.ui.settings.SettingsFragment
 import com.gscube.smsbulker.ui.templates.PreviewTemplateDialog
 import com.gscube.smsbulker.ui.templates.TemplatesFragment
 import com.squareup.anvil.annotations.MergeComponent
@@ -21,12 +22,9 @@ import dagger.Component
 import javax.inject.Singleton
 
 @Singleton
-@MergeComponent(
-    scope = AppScope::class,
-    modules = [AppModuleContributions::class]
-)
+@MergeComponent(AppScope::class)
 interface AppComponent : ViewModelComponent {
-    fun viewModelFactory(): ViewModelProvider.Factory
+    override fun viewModelFactory(): ViewModelProvider.Factory
 
     fun inject(application: SmsBulkerApplication)
     fun inject(activity: MainActivity)
@@ -40,6 +38,7 @@ interface AppComponent : ViewModelComponent {
     fun inject(fragment: AnalyticsFragment)
     fun inject(fragment: ContactsFragment)
     fun inject(fragment: CsvEditorFragment)
+    fun inject(fragment: SettingsFragment)
     fun inject(dialog: PreviewTemplateDialog)
 
     @Component.Factory

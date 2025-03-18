@@ -7,6 +7,7 @@ import com.gscube.smsbulker.ui.analytics.AnalyticsViewModel
 import com.gscube.smsbulker.ui.auth.AuthViewModel
 import com.gscube.smsbulker.ui.contacts.ContactsViewModel
 import com.gscube.smsbulker.ui.csvEditor.CsvEditorViewModel
+import com.gscube.smsbulker.ui.settings.SettingsViewModel
 import com.gscube.smsbulker.ui.templates.TemplatesViewModel
 import com.gscube.smsbulker.ui.sendMessage.SendMessageViewModel
 import com.gscube.smsbulker.ui.sms.SmsViewModel
@@ -14,6 +15,7 @@ import com.squareup.anvil.annotations.ContributesTo
 import dagger.Binds
 import dagger.Module
 import dagger.multibindings.IntoMap
+import javax.inject.Provider
 
 @Module
 @ContributesTo(AppScope::class)
@@ -60,4 +62,9 @@ abstract class ViewModelModule {
     @IntoMap
     @ViewModelKey(SmsViewModel::class)
     abstract fun bindSmsViewModel(viewModel: SmsViewModel): ViewModel
+
+    @Binds
+    @IntoMap
+    @ViewModelKey(SettingsViewModel::class)
+    abstract fun bindSettingsViewModel(viewModel: SettingsViewModel): ViewModel
 }

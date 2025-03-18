@@ -91,30 +91,42 @@
 
     </LinearLayout>
 
-    <LinearLayout
+    <!-- Add Contact Button (Right Corner) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/addContactButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:orientation="vertical"
-        android:layout_margin="16dp">
+        android:layout_margin="16dp"
+        android:contentDescription="Add contact"
+        app:srcCompat="@drawable/ic_add"
+        app:tint="@android:color/white" />
 
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:id="@+id/sendSelectedFab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:text="Send to Selected"
-            app:icon="@drawable/ic_send"
-            android:visibility="gone" />
+    <!-- Send Selected Button (Left Corner) -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/sendSelectedFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="16dp"
+        android:text="Send to Selected"
+        app:icon="@drawable/ic_send"
+        android:visibility="gone" />
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/addContactButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:contentDescription="Add contact"
-            app:srcCompat="@drawable/ic_add"
-            app:tint="@android:color/white" />
-
-    </LinearLayout>
+    <!-- Send Message Button (Bottom Center) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/sendMessageButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="Send Messages"
+        android:textColor="@color/white"
+        app:icon="@drawable/ic_send_message"
+        app:iconTint="@color/white"
+        android:backgroundTint="?attr/colorPrimary"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

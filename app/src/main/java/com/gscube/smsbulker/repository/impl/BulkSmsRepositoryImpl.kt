@@ -90,16 +90,31 @@ class BulkSmsRepositoryImpl @Inject constructor(
             Log.d("BulkSmsRepository", "Error body: ${response.errorBody()?.string()}")
 
             if (response.isSuccessful && response.body() != null) {
-                val data = response.body()!!
-                Result.success(BulkSmsResponse(
-                    batchId = data.data?.messageId ?: UUID.randomUUID().toString(),
-                    status = if (data.code == 200) BatchStatus.QUEUED else BatchStatus.FAILED,
-                    totalMessages = request.recipients.size,
-                    cost = data.data?.cost ?: 0.0,
-                    units = data.data?.creditsUsed ?: 0,
-                    errorMessage = if (!response.isSuccessful) response.message() else null,
-                    timestamp = System.currentTimeMillis()
-                ))
+                val responseData = response.body()!!
+                if (responseData.status == "success" && responseData.data.isNotEmpty()) {
+                    // Create message status entries for each recipient
+                    val messageStatuses = responseData.data.map { result ->
+                        MessageStatus(
+                            messageId = result.id,
+                            recipient = result.recipient,
+                            status = BatchStatus.QUEUED,
+                            timestamp = System.currentTimeMillis(),
+                            errorMessage = null
+                        )
+                    }
+                    
+                    // Create the batch response
+                    Result.success(BulkSmsResponse(
+                        batchId = responseData.data.firstOrNull()?.id ?: UUID.randomUUID().toString(),
+                        status = BatchStatus.QUEUED,
+                        totalMessages = request.recipients.size,
+                        messageStatuses = messageStatuses,
+                        errorMessage = null,
+                        timestamp = System.currentTimeMillis()
+                    ))
+                } else {
+                    Result.failure(Exception("Failed to send messages: ${responseData.status}"))
+                }
             } else {
                 Result.failure(Exception(response.message()))
             }

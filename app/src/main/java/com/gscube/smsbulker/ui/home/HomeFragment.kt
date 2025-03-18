@@ -9,6 +9,9 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
@@ -100,6 +103,7 @@ class HomeFragment : Fragment() {
         super.onCreate(savedInstanceState)
         (requireActivity().application as SmsBulkerApplication)
             .appComponent.inject(this)
+        setHasOptionsMenu(true)
     }
 
     override fun onCreateView(
@@ -306,6 +310,20 @@ class HomeFragment : Fragment() {
         }
         startActivity(intent)
         requireActivity().finish()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.menu_home, menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_settings -> {
+                findNavController().navigate(R.id.action_homeFragment_to_settingsFragment)
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     override fun onDestroyView() {

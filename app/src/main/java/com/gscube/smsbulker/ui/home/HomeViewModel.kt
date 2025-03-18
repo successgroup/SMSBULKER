@@ -187,8 +187,19 @@ class HomeViewModel @Inject constructor(
             )
         }
         _state.update { currentState ->
+            val existingPhoneNumbers = currentState.recipients.map { it.phoneNumber }.toSet()
+            val uniqueNewRecipients = newRecipients.filter { !existingPhoneNumbers.contains(it.phoneNumber) }
+            
+            if (uniqueNewRecipients.size < newRecipients.size) {
+                // Some duplicates were found
+                val duplicateCount = newRecipients.size - uniqueNewRecipients.size
+                _state.value = currentState.copy(
+                    error = "Skipped $duplicateCount duplicate contact(s)"
+                )
+            }
+            
             currentState.copy(
-                recipients = currentState.recipients + newRecipients
+                recipients = currentState.recipients + uniqueNewRecipients
             )
         }
     }
@@ -239,12 +250,12 @@ class HomeViewModel @Inject constructor(
                 val response = bulkSmsRepository.sendBulkSms(request)
                 response.onSuccess { bulkSmsResponse ->
                     // Create BulkSmsResults from response
-                    val results = recipients.map { recipient ->
+                    val results = bulkSmsResponse.messageStatuses.map { status ->
                         BulkSmsResult(
-                            recipient = recipient.phoneNumber,
-                            status = bulkSmsResponse.status.toString(),
-                            messageId = bulkSmsResponse.batchId,
-                            timestamp = bulkSmsResponse.timestamp
+                            recipient = status.recipient,
+                            status = status.status.toString(),
+                            messageId = status.messageId,
+                            timestamp = status.timestamp
                         )
                     }
                     

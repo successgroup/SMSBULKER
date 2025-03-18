@@ -29,6 +29,7 @@ data class BulkSmsResponse(
     val batchId: String,
     val status: BatchStatus,
     val totalMessages: Int,
+    val messageStatuses: List<MessageStatus> = emptyList(),
     val cost: Double = 0.0,
     val units: Int = 0,
     val errorMessage: String? = null,
