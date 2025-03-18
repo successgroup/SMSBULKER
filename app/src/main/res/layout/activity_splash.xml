@@ -1,27 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/splash_background">
+    android:background="@color/splash_background_start">
 
     <ImageView
         android:id="@+id/splashIcon"
         android:layout_width="140dp"
         android:layout_height="140dp"
         android:src="@drawable/animated_chat_bubbles"
+        android:alpha="0"
         app:layout_constraintBottom_toTopOf="@+id/appNameContainer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_chainStyle="packed"
-        app:layout_constraintVertical_bias="0.4" />
+        app:layout_constraintVertical_bias="0.35" />
 
     <LinearLayout
         android:id="@+id/appNameContainer"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="4dp"
         android:gravity="center"
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -35,8 +37,8 @@
             android:layout_height="wrap_content"
             android:alpha="0"
             android:fontFamily="@font/montserrat"
-            android:text="SMS BULKER"
-            android:textColor="@color/splash_text_primary"
+            android:text="SMS Bulker"
+            android:textColor="@color/splash_text_start"
             android:textSize="32sp"
             android:textStyle="bold"
             android:letterSpacing="0.05" />
@@ -45,11 +47,11 @@
             android:id="@+id/companyName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="1dp"
             android:alpha="0"
             android:fontFamily="@font/montserrat"
             android:text="by GSCube"
-            android:textColor="@color/splash_text_secondary"
+            android:textColor="@color/splash_text_secondary_start"
             android:textSize="14sp" />
     </LinearLayout>
 

@@ -12,8 +12,11 @@ import com.gscube.smsbulker.ui.auth.LoginActivity
 import com.squareup.anvil.annotations.ContributesBinding
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.net.UnknownHostException
+import java.net.SocketTimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
+import retrofit2.HttpException
 
 data class HomeViewState(
     val isLoading: Boolean = false,
@@ -21,9 +24,9 @@ data class HomeViewState(
     val success: String? = null,
     val selectedTemplate: MessageTemplate? = null,
     val recipients: List<Recipient> = emptyList(),
-    val results: List<BulkSmsResult> = emptyList(),
     val senderID: String? = null,
-    val needsLogin: Boolean = false
+    val needsLogin: Boolean = false,
+    val sendingStage: SendingProgressDialog.SendStage? = null
 )
 
 @Singleton
@@ -121,8 +124,14 @@ class HomeViewModel @Inject constructor(
                     )}
                 }
             } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is UnknownHostException -> "No internet connection. Please check your network and try again."
+                    is SocketTimeoutException -> "Connection timed out. Please check your internet connection and try again."
+                    else -> "Failed to load recipients. Please try again."
+                }
+                
                 _state.update { it.copy(
-                    error = "Failed to load recipients: ${e.message}",
+                    error = errorMessage,
                     isLoading = false
                 )}
             }
@@ -146,8 +155,14 @@ class HomeViewModel @Inject constructor(
                     isLoading = false
                 )}
             } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is UnknownHostException -> "No internet connection. Please check your network and try again."
+                    is SocketTimeoutException -> "Connection timed out. Please check your internet connection and try again."
+                    else -> "Failed to import contacts. Please try again."
+                }
+                
                 _state.update { it.copy(
-                    error = "Failed to import contacts: ${e.message}",
+                    error = errorMessage,
                     isLoading = false
                 )}
             }
@@ -224,10 +239,15 @@ class HomeViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                _state.update { it.copy(isLoading = true, error = null) }
+                // Update to PREPARING stage
+                _state.update { it.copy(
+                    isLoading = true,
+                    error = null,
+                    sendingStage = SendingProgressDialog.SendStage.PREPARING
+                )}
                 
                 val senderID = currentState.senderID ?: try {
-                    val user = userRepository.getCurrentUser()  // This returns non-null User
+                    val user = userRepository.getCurrentUser()
                     if (user.companyAlias.isBlank()) {
                         throw IllegalStateException("Company alias is not set")
                     }
@@ -235,10 +255,14 @@ class HomeViewModel @Inject constructor(
                 } catch (e: Exception) {
                     _state.update { it.copy(
                         error = "Failed to get sender ID: ${e.message}",
-                        isLoading = false
+                        isLoading = false,
+                        sendingStage = SendingProgressDialog.SendStage.ERROR
                     )}
                     return@launch
                 }
+
+                // Update to SENDING stage
+                _state.update { it.copy(sendingStage = SendingProgressDialog.SendStage.SENDING) }
 
                 val request = BulkSmsRequest(
                     message = message,
@@ -247,33 +271,54 @@ class HomeViewModel @Inject constructor(
                     messageTemplate = currentState.selectedTemplate
                 )
                 
+                // Make the API call
                 val response = bulkSmsRepository.sendBulkSms(request)
+                
+                // Update to PROCESSING stage
+                _state.update { it.copy(sendingStage = SendingProgressDialog.SendStage.PROCESSING) }
+                
                 response.onSuccess { bulkSmsResponse ->
-                    // Create BulkSmsResults from response
-                    val results = bulkSmsResponse.messageStatuses.map { status ->
-                        BulkSmsResult(
-                            recipient = status.recipient,
-                            status = status.status.toString(),
-                            messageId = status.messageId,
-                            timestamp = status.timestamp
-                        )
+                    // Update to COMPLETED stage with success message
+                    _state.update { it.copy(
+                        isLoading = false,
+                        success = "Messages sent successfully to ${recipients.size} recipients",
+                        sendingStage = SendingProgressDialog.SendStage.COMPLETED
+                    )}
+                }.onFailure { error ->
+                    val errorMessage = when (error) {
+                        is UnknownHostException -> "No internet connection. Please check your network and try again."
+                        is SocketTimeoutException -> "Connection timed out. Please check your internet connection and try again."
+                        is HttpException -> when (error.code()) {
+                            401 -> "Authentication failed. Please check your API key."
+                            403 -> "Access denied. Please verify your account status."
+                            429 -> "Too many requests. Please try again later."
+                            in 500..599 -> "Server error. Please try again later."
+                            else -> "Failed to send messages. Please try again."
+                        }
+                        else -> when {
+                            error.message?.contains("ECONNREFUSED") == true -> "Could not connect to the server. Please try again later."
+                            error.message?.contains("timeout") == true -> "Request timed out. Please check your internet connection."
+                            else -> "Failed to send messages. Please try again."
+                        }
                     }
                     
                     _state.update { it.copy(
-                        results = results,
+                        error = errorMessage,
                         isLoading = false,
-                        success = "Messages sent successfully"
-                    )}
-                }.onFailure { error ->
-                    _state.update { it.copy(
-                        error = "Failed to send messages: ${error.message}",
-                        isLoading = false
+                        sendingStage = SendingProgressDialog.SendStage.ERROR
                     )}
                 }
             } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is UnknownHostException -> "No internet connection. Please check your network and try again."
+                    is SocketTimeoutException -> "Connection timed out. Please check your internet connection and try again."
+                    else -> "Failed to send messages. Please try again."
+                }
+                
                 _state.update { it.copy(
-                    error = "Failed to send messages: ${e.message}",
-                    isLoading = false
+                    error = errorMessage,
+                    isLoading = false,
+                    sendingStage = SendingProgressDialog.SendStage.ERROR
                 )}
             }
         }

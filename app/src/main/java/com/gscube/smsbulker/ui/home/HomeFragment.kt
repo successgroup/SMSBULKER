@@ -188,6 +188,14 @@ class HomeFragment : Fragment() {
                     // Update sender ID
                     binding.senderIdDisplay.text = state.senderID ?: "No sender ID available"
 
+                    // Handle sending stages
+                    state.sendingStage?.let { stage ->
+                        if (stage == SendingProgressDialog.SendStage.PREPARING) {
+                            showProgress()
+                        }
+                        progressDialog?.updateStage(stage)
+                    }
+
                     // Handle errors
                     state.error?.let { error ->
                         Snackbar.make(binding.root, error, Snackbar.LENGTH_LONG).show()
@@ -195,6 +203,7 @@ class HomeFragment : Fragment() {
                             startActivity(Intent(requireContext(), LoginActivity::class.java))
                             requireActivity().finish()
                         }
+                        viewModel.clearError()
                     }
 
                     // Update recipients
@@ -273,43 +282,18 @@ class HomeFragment : Fragment() {
             .setMessage("Are you sure you want to send this message to ${state.recipients.size} recipients?")
             .setPositiveButton("Send") { _, _ ->
                 viewModel.sendBulkSms()
-                showProgress()
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
     private fun showProgress() {
-        progressDialog = SendingProgressDialog().also {
-            it.show(childFragmentManager, "progress")
-        }
-    }
-
-    private fun hideProgress() {
-        progressDialog?.dismiss()
-        progressDialog = null
-    }
-
-    private fun showResults(results: List<BulkSmsResult>) {
-        resultsDialog = SendingResultsDialog.newInstance(ArrayList(results)).also {
-            it.show(childFragmentManager, "results")
-        }
+        progressDialog = SendingProgressDialog.newInstance()
+        progressDialog?.show(childFragmentManager, SendingProgressDialog.TAG)
     }
 
     private fun showError(message: String) {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
-    }
-
-    private fun showSnackbar(message: String) {
-        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
-    }
-
-    private fun startLoginActivity() {
-        val intent = Intent(requireContext(), LoginActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        startActivity(intent)
-        requireActivity().finish()
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
