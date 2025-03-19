@@ -227,6 +227,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun clearRecipients() {
+        _state.update { it.copy(recipients = emptyList()) }
+    }
+
     fun sendBulkSms() {
         val currentState = state.value
         val message = currentState.selectedTemplate?.content ?: return

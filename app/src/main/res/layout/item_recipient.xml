@@ -1,61 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    android:layout_marginHorizontal="8dp"
-    android:layout_marginVertical="4dp"
-    app:cardElevation="2dp">
+    android:layout_marginBottom="8dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:orientation="horizontal"
+        android:padding="8dp">
 
-        <!-- Recipient Info -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
+            android:layout_weight="1"
+            android:orientation="vertical">
 
             <TextView
                 android:id="@+id/nameText"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textAppearance="?attr/textAppearanceSubtitle1"
-                tools:text="John Doe" />
+                android:textAppearance="?attr/textAppearanceSubtitle1" />
 
             <TextView
                 android:id="@+id/phoneNumberText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
                 android:textAppearance="?attr/textAppearanceBody2"
-                android:textColor="?android:textColorSecondary"
-                tools:text="+1234567890" />
-
-            <ImageButton
-                android:id="@+id/removeButton"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Remove recipient"
-                android:src="@android:drawable/ic_menu_close_clear_cancel"
-                app:tint="?attr/colorError" />
-
+                android:textColor="?android:attr/textColorSecondary" />
         </LinearLayout>
 
-        <!-- Variables -->
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/variablesChipGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+        <ImageButton
+            android:id="@+id/removeButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Remove recipient"
+            android:padding="8dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel" />
 
     </LinearLayout>
-
-</com.google.android.material.card.MaterialCardView> 
+</com.google.android.material.card.MaterialCardView>

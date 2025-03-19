@@ -15,34 +15,6 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Sender ID Display -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Your Sender ID"
-                        android:textAppearance="?attr/textAppearanceSubtitle1" />
-
-                    <TextView
-                        android:id="@+id/senderIdDisplay"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:textAppearance="?attr/textAppearanceBody1"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
             <!-- Message Composition Section -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -79,12 +51,28 @@
                             android:minLines="3" />
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/selectTemplateButton"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Select Template" />
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/selectTemplateButton"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="8dp"
+                            android:text="Select Template" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/selectRecipientsButton"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Select Recipients" />
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/selectedTemplateText"
@@ -137,21 +125,12 @@
                         android:layout_marginBottom="16dp">
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/uploadCsvButton"
+                            android:id="@+id/clearRecipientsButton"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="0dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginEnd="8dp"
-                            android:text="Upload CSV" />
+                            android:text="Clear Recipients" />
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/importContactsButton"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="Import Contacts" />
                     </LinearLayout>
 
                     <androidx.recyclerview.widget.RecyclerView

@@ -149,11 +149,15 @@ class HomeFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.apply {
-            uploadCsvButton.setOnClickListener { checkPermissionsAndLoadCsv() }
-            importContactsButton.setOnClickListener { checkPermissionsAndImportContacts() }
             sendButton.setOnClickListener { validateAndSend() }
             selectTemplateButton.setOnClickListener {
                 findNavController().navigate(R.id.nav_templates)
+            }
+            selectRecipientsButton.setOnClickListener {
+                findNavController().navigate(R.id.action_homeFragment_to_contactsFragment)
+            }
+            clearRecipientsButton.setOnClickListener {
+                viewModel.clearRecipients()
             }
         }
     }
@@ -185,8 +189,6 @@ class HomeFragment : Fragment() {
                         binding.selectedTemplateText.isVisible = false
                     }
 
-                    // Update sender ID
-                    binding.senderIdDisplay.text = state.senderID ?: "No sender ID available"
 
                     // Handle sending stages
                     state.sendingStage?.let { stage ->

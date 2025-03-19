@@ -5,7 +5,6 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.chip.Chip
 import com.gscube.smsbulker.data.model.Recipient
 import com.gscube.smsbulker.databinding.ItemRecipientBinding
 
@@ -38,18 +37,6 @@ class RecipientsAdapter(
                 // Set up remove button click listener
                 removeButton.setOnClickListener {
                     onRemoveClick(recipient)
-                }
-
-                // Clear existing chips
-                variablesChipGroup.removeAllViews()
-
-                // Add chips for each variable
-                recipient.variables.forEach { (key, value) ->
-                    val chip = Chip(root.context).apply {
-                        text = "$key: $value"
-                        isClickable = false
-                    }
-                    variablesChipGroup.addView(chip)
                 }
             }
         }
