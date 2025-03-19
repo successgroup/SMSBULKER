@@ -21,7 +21,8 @@ data class ContactsUiState(
     val contacts: List<Contact> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val selectedContacts: Set<Contact> = emptySet()
 )
 
 sealed interface ContactsEvent {
@@ -43,6 +44,9 @@ class ContactsViewModel @Inject constructor(
     val events: SharedFlow<ContactsEvent> = _events.asSharedFlow()
 
     private val searchQuery = MutableStateFlow("")
+
+    private var allContacts = listOf<Contact>()
+    private var selectedContacts = mutableSetOf<Contact>()
 
     init {
         observeContacts()
@@ -78,6 +82,7 @@ class ContactsViewModel @Inject constructor(
                     handleError(error)
                 }
                 .collect { contacts ->
+                    allContacts = contacts
                     _uiState.update { it.copy(
                         contacts = contacts,
                         isLoading = false
@@ -90,7 +95,35 @@ class ContactsViewModel @Inject constructor(
         viewModelScope.launch {
             searchQuery.emit(query)
             _uiState.update { it.copy(searchQuery = query) }
+            if (query.isEmpty()) {
+                // When search is cleared, show all contacts but maintain selections
+                _uiState.update { it.copy(contacts = allContacts) }
+            } else {
+                filterContacts(query)
+            }
         }
+    }
+
+    fun filterContacts(query: String) {
+        val filteredContacts = allContacts.filter { contact ->
+            contact.name.contains(query, ignoreCase = true) ||
+            contact.phoneNumber.contains(query) ||
+            contact.group.contains(query, ignoreCase = true) ||
+            contact.variables.any { (key, value) ->
+                key.contains(query, ignoreCase = true) ||
+                value.contains(query, ignoreCase = true)
+            }
+        }
+        _uiState.update { it.copy(contacts = filteredContacts) }
+    }
+
+    fun toggleContactSelection(contact: Contact) {
+        if (selectedContacts.contains(contact)) {
+            selectedContacts.remove(contact)
+        } else {
+            selectedContacts.add(contact)
+        }
+        _uiState.update { it.copy(selectedContacts = selectedContacts.toSet()) }
     }
 
     fun saveContact(contact: Contact) {

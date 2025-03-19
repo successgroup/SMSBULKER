@@ -161,7 +161,12 @@ class ContactsFragment : Fragment() {
 
     private fun setupSearch() {
         binding.searchInput.addTextChangedListener { text ->
-            viewModel.updateSearchQuery(text?.toString() ?: "")
+            val query = text?.toString() ?: ""
+            viewModel.updateSearchQuery(query)
+            // Don't clear selection when search is cleared
+            if (query.isNotEmpty()) {
+                viewModel.filterContacts(query)
+            }
         }
     }
 
