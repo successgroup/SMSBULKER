@@ -209,34 +209,38 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
-    fun exportContactsToCSV(contacts: List<Contact>) {
+    private fun escapeCSV(value: String): String {
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\""
+        }
+        return value
+    }
+
+    fun exportContactsToCSV(uri: Uri, contacts: List<Contact>) {
         viewModelScope.launch {
             try {
-                val fileName = "contacts_export_${System.currentTimeMillis()}.csv"
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val file = File(downloadsDir, fileName)
-                
-                file.bufferedWriter().use { writer ->
-                    // Write header
-                    writer.write("Name,Phone Number,Group,Variables\n")
-                    
-                    // Write contacts
-                    contacts.forEach { contact ->
-                        val variables = contact.variables.entries.joinToString(";") { "${it.key}=${it.value}" }
-                        writer.write("${contact.name},${contact.phoneNumber},${contact.group},${variables}\n")
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.bufferedWriter().use { writer ->
+                        // Write header
+                        writer.write("Name,Phone Number,Group,Variables\n")
+                        
+                        // Write contacts
+                        contacts.forEach { contact ->
+                            val variables = contact.variables.entries.joinToString(";") { 
+                                "${escapeCSV(it.key)}=${escapeCSV(it.value)}"
+                            }
+                            val line = listOf(
+                                escapeCSV(contact.name),
+                                escapeCSV(contact.phoneNumber),
+                                escapeCSV(contact.group),
+                                escapeCSV(variables)
+                            ).joinToString(",")
+                            writer.write(line + "\n")
+                        }
                     }
-                }
+                } ?: throw IllegalStateException("Could not open output stream")
                 
-                // Notify media scanner
-                MediaScannerConnection.scanFile(
-                    context,
-                    arrayOf(file.absolutePath),
-                    arrayOf("text/csv")
-                ) { path, uri -> 
-                    viewModelScope.launch {
-                        _events.emit(ContactsEvent.ShowSuccess("Contacts exported to $path"))
-                    }
-                }
+                _events.emit(ContactsEvent.ShowSuccess("Contacts exported successfully"))
             } catch (e: Exception) {
                 _events.emit(ContactsEvent.ShowError("Failed to export contacts: ${e.message}"))
             }

@@ -102,6 +102,18 @@ class ContactsFragment : Fragment() {
         }
     }
 
+    private val csvSaveFilePicker = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let { selectedUri ->
+            try {
+                viewModel.exportContactsToCSV(selectedUri, contactsAdapter.getSelectedContacts().toList())
+            } catch (e: Exception) {
+                Snackbar.make(binding.root, "Failed to export CSV: ${e.message}", Snackbar.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         (requireActivity().application as SmsBulkerApplication)
@@ -298,11 +310,13 @@ class ContactsFragment : Fragment() {
     }
 
     private fun exportContactsToCSV(contacts: List<Contact>) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            viewModel.exportContactsToCSV(contacts)
-        } else {
-            requestPermissionLauncher.launch(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE))
+        if (contacts.isEmpty()) {
+            Snackbar.make(binding.root, "No contacts selected to export", Snackbar.LENGTH_SHORT).show()
+            return
         }
+        // Launch file picker with suggested name
+        val fileName = "contacts_export_${System.currentTimeMillis()}.csv"
+        csvSaveFilePicker.launch(fileName)
     }
 
     private fun exportContactsToPhone(contacts: List<Contact>) {
