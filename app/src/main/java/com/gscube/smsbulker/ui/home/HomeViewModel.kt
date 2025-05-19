@@ -26,7 +26,9 @@ data class HomeViewState(
     val recipients: List<Recipient> = emptyList(),
     val senderID: String? = null,
     val needsLogin: Boolean = false,
-    val sendingStage: SendingProgressDialog.SendStage? = null
+    val sendingStage: SendingProgressDialog.SendStage? = null,
+    val message: String = "",
+    val availableCredits: Int = 0  // Add this line
 )
 
 @Singleton
@@ -37,14 +39,30 @@ class HomeViewModel @Inject constructor(
     private val bulkSmsRepository: BulkSmsRepository,
     private val contactsRepository: ContactsRepository,
     private val userRepository: UserRepository,
-    private val firebaseRepository: FirebaseRepository
+    private val firebaseRepository: FirebaseRepository,
+    private val accountRepository: AccountRepository  // Keep this one
 ) : AndroidViewModel(application) {
 
     private val _state = MutableStateFlow(HomeViewState())
     val state: StateFlow<HomeViewState> = _state.asStateFlow()
 
+    // Remove this duplicate declaration
+    // @Inject
+    // lateinit var accountRepository: AccountRepository
+
+    private fun loadCreditBalance() {
+        viewModelScope.launch {
+            accountRepository.getCreditBalance().onSuccess { balance ->
+                _state.update { it.copy(availableCredits = balance.availableCredits.toInt()) }
+            }.onFailure { error ->
+                _state.update { it.copy(error = "Failed to load credit balance: ${error.message}") }
+            }
+        }
+    }
+
     init {
         loadUserInfo()
+        loadCreditBalance()
     }
 
     private fun loadUserInfo() {
@@ -185,12 +203,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun updateMessageContent(content: String) {
-        _state.update { currentState ->
-            currentState.copy(
-                selectedTemplate = currentState.selectedTemplate?.copy(content = content)
-            )
-        }
+    fun updateMessageContent(message: String) {
+        _state.update { it.copy(message = message) }
     }
 
     fun addRecipients(contacts: List<Contact>) {

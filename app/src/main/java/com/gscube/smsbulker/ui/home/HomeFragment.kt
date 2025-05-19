@@ -163,11 +163,23 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupMessageInput() {
+        // Set initial character count format
+        binding.characterCountText.text = "0(0)"
+        
         binding.messageInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(charSequence: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(charSequence: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(editable: Editable?) {
-                editable?.toString()?.let { text -> viewModel.updateMessageContent(text) }
+                editable?.toString()?.let { text -> 
+                    viewModel.updateMessageContent(text)
+                    // Calculate message pages (160 characters per page)
+                    val charCount = text.length
+                    val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 160) + 1
+                    // Update character and page count
+                    binding.characterCountText.text = "$charCount($pageCount)"
+                } ?: run {
+                    binding.characterCountText.text = "0(0)"
+                }
             }
         })
     }
@@ -186,6 +198,10 @@ class HomeFragment : Fragment() {
                         binding.selectedTemplateText.text = "Selected template: ${template.title}"
                         binding.selectedTemplateText.isVisible = true
                     } ?: run {
+                        // If no template is selected, show the persisted message
+                        if (binding.messageInput.text.toString() != state.message) {
+                            binding.messageInput.setText(state.message)
+                        }
                         binding.selectedTemplateText.isVisible = false
                     }
 
@@ -278,10 +294,23 @@ class HomeFragment : Fragment() {
                 return
             }
         }
-
+    
+        // Calculate message pages
+        val messageText = binding.messageInput.text.toString()
+        val charCount = messageText.length
+        val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 160) + 1
+        val totalCredits = pageCount * state.recipients.size
+    
+        // Check if user has enough credits
+        if (totalCredits > state.availableCredits) {
+            showError("Insufficient credits. You need $totalCredits credits but only have ${state.availableCredits} available.")
+            return
+        }
+    
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Confirm Send")
-            .setMessage("Are you sure you want to send this message to ${state.recipients.size} recipients?")
+            .setMessage("Are you sure you want to send this message to ${state.recipients.size} recipients?\n\n" +
+                       "This will consume $totalCredits credits out of ${state.availableCredits} available.")
             .setPositiveButton("Send") { _, _ ->
                 viewModel.sendBulkSms()
             }

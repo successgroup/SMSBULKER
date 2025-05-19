@@ -83,46 +83,6 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- API Key Section -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardApiKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    style="@style/TextAppearance.MaterialComponents.Headline6"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    android:text="API Key" />
-
-                <TextView
-                    android:id="@+id/textApiKey"
-                    style="@style/TextAppearance.MaterialComponents.Body1"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:fontFamily="monospace"
-                    tools:text="sk_live_1234567890abcdef" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/buttonRegenerateApiKey"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Regenerate API Key" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
         <!-- Credits Section -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardCredits"

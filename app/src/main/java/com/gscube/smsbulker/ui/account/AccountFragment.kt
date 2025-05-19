@@ -65,7 +65,7 @@ class AccountFragment : Fragment() {
                                     textPhone.text = profile.phone
                                     textCompany.text = profile.company ?: "Not specified"
                                     textCompanyAlias.text = "Sender ID: ${profile.companyAlias}"
-                                    textApiKey.text = profile.apiKey
+                                    
                                 }
                             }.onFailure { error ->
                                 showErrorSnackbar(error.message ?: "Failed to load profile")
@@ -126,10 +126,7 @@ class AccountFragment : Fragment() {
                 findNavController().navigate(R.id.action_accountFragment_to_editProfileFragment)
             }
             
-            buttonRegenerateApiKey.setOnClickListener {
-                viewModel.refreshApiKey()
-            }
-            
+                     
             buttonChangePlan.setOnClickListener {
                 findNavController().navigate(R.id.action_accountFragment_to_subscriptionPlansFragment)
             }

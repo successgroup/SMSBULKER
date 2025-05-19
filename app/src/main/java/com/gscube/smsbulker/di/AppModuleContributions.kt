@@ -13,7 +13,8 @@ import dagger.Module
         AnalyticsModule::class,
         StorageModule::class,
         CsvModule::class,
-        ViewModelModule::class
+        ViewModelModule::class,
+        ConfigModule::class  // Add this if you're using ConfigModule
     ]
 )
 @ContributesTo(AppScope::class)

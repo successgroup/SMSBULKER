@@ -10,5 +10,7 @@ data class UserProfile(
     val emailVerified: Boolean = false,
     val apiKey: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val lastLogin: Long = System.currentTimeMillis()
+    val lastLogin: Long = System.currentTimeMillis(),
+    val creditBalance: CreditBalance? = null,
+    val subscription: Subscription? = null
 )

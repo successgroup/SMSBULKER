@@ -25,6 +25,16 @@ data class SendMessageUiState(
     val scheduleTime: Long? = null
 )
 
+data class InvalidRecipient(
+    val recipient: Recipient,
+    val missingPlaceholders: Set<String>
+)
+
+data class PlaceholderValidationResult(
+    val validRecipients: List<Recipient>,
+    val invalidRecipients: List<InvalidRecipient>
+)
+
 @Singleton
 @ContributesMultibinding(AppScope::class)
 class SendMessageViewModel @Inject constructor(
@@ -88,34 +98,70 @@ class SendMessageViewModel @Inject constructor(
                 setLoading(true)
                 clearMessages()
 
-                val messageFlow = if (currentState.selectedTemplate != null) {
-                    // Send personalized messages using template
-                    val personalizedRecipients = currentState.selectedContacts.map { contact ->
-                        contact.phoneNumber to (contact.variables ?: emptyMap())
+                // Placeholder validation for template messages
+                if (currentState.selectedTemplate != null) {
+                    // Convert contacts to recipients
+                    val recipients = currentState.selectedContacts.map { contact ->
+                        Recipient(
+                            phoneNumber = contact.phoneNumber, 
+                            name = contact.name, 
+                            variables = contact.variables
+                        )
                     }
-                    smsRepository.sendPersonalizedSms(
+
+                    val validationResult = validatePlaceholders(
+                        currentState.message, 
+                        recipients
+                    )
+                    
+                    if (validationResult.invalidRecipients.isNotEmpty()) {
+                        val errorMessages = validationResult.invalidRecipients.map { invalidRecipient ->
+                            "Recipient ${invalidRecipient.recipient.name ?: invalidRecipient.recipient.phoneNumber} is missing placeholders: ${invalidRecipient.missingPlaceholders.joinToString(", ")}"
+                        }
+                        setError("Placeholder validation failed:\n${errorMessages.joinToString("\n")}")
+                        return@launch
+                    }
+
+                    // Use only valid recipients for sending
+                    val personalizedRecipients = validationResult.validRecipients.map { recipient ->
+                        recipient.phoneNumber to (recipient.variables ?: emptyMap())
+                    }
+
+                    val messageFlow = smsRepository.sendPersonalizedSms(
                         recipients = personalizedRecipients,
                         messageTemplate = currentState.message,
                         sender = currentState.senderId
                     )
+
+                    messageFlow.collect { results ->
+                        val successful = results.count { it.status == "DELIVERED" }
+                        val failed = results.count { it.status == "FAILED" }
+                        val totalCost = results.sumOf { it.cost }
+                        
+                        if (successful > 0) {
+                            setSuccess("Successfully sent $successful messages${if (failed > 0) ", $failed failed" else ""}. Total cost: $totalCost credits")
+                        } else {
+                            setError("Failed to send messages")
+                        }
+                    }
                 } else {
                     // Send bulk message
-                    smsRepository.sendBulkSms(
+                    val messageFlow = smsRepository.sendBulkSms(
                         recipients = currentState.selectedContacts.map { it.phoneNumber },
                         message = currentState.message,
                         sender = currentState.senderId
                     )
-                }
 
-                messageFlow.collect { results ->
-                    val successful = results.count { it.status == "DELIVERED" }
-                    val failed = results.count { it.status == "FAILED" }
-                    val totalCost = results.sumOf { it.cost }
-                    
-                    if (successful > 0) {
-                        setSuccess("Successfully sent $successful messages${if (failed > 0) ", $failed failed" else ""}. Total cost: $totalCost credits")
-                    } else {
-                        setError("Failed to send messages")
+                    messageFlow.collect { results ->
+                        val successful = results.count { it.status == "DELIVERED" }
+                        val failed = results.count { it.status == "FAILED" }
+                        val totalCost = results.sumOf { it.cost }
+                        
+                        if (successful > 0) {
+                            setSuccess("Successfully sent $successful messages${if (failed > 0) ", $failed failed" else ""}. Total cost: $totalCost credits")
+                        } else {
+                            setError("Failed to send messages")
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -140,5 +186,39 @@ class SendMessageViewModel @Inject constructor(
 
     private fun clearMessages() {
         _uiState.update { it.copy(error = null, success = null) }
+    }
+
+    private fun validatePlaceholders(template: String, recipients: List<Recipient>): PlaceholderValidationResult {
+        val placeholderRegex = Regex("\\{(\\w+)\\}")
+        val placeholders = placeholderRegex.findAll(template)
+            .map { it.groupValues[1] }
+            .toSet()
+
+        val validRecipients = mutableListOf<Recipient>()
+        val invalidRecipients = mutableListOf<InvalidRecipient>()
+
+        recipients.forEach { recipient ->
+            val recipientVariables = recipient.variables ?: emptyMap()
+            
+            val missingPlaceholders = placeholders.filter { placeholder ->
+                !recipientVariables.containsKey(placeholder)
+            }.toSet()
+
+            if (missingPlaceholders.isEmpty()) {
+                validRecipients.add(recipient)
+            } else {
+                invalidRecipients.add(
+                    InvalidRecipient(
+                        recipient = recipient,
+                        missingPlaceholders = missingPlaceholders
+                    )
+                )
+            }
+        }
+
+        return PlaceholderValidationResult(
+            validRecipients = validRecipients,
+            invalidRecipients = invalidRecipients
+        )
     }
 }

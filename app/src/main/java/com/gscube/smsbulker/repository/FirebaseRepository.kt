@@ -1,5 +1,7 @@
 package com.gscube.smsbulker.repository
 
+import com.gscube.smsbulker.data.CreditBalance
+import com.gscube.smsbulker.data.Subscription
 import com.gscube.smsbulker.data.UserProfile
 
 interface FirebaseRepository {
@@ -19,4 +21,8 @@ interface FirebaseRepository {
     suspend fun verifyEmail(): Result<Unit>
     suspend fun isEmailVerified(): Boolean
     suspend fun reloadUser(): Result<Unit>
+    // Add to FirebaseRepository.kt
+    suspend fun refreshApiKey(): Result<Unit>
+    suspend fun getCreditBalance(): Result<CreditBalance>
+    suspend fun getSubscription(): Result<Subscription>
 }
