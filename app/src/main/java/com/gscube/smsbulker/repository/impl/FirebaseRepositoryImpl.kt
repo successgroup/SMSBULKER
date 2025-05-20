@@ -16,13 +16,15 @@ import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
 import java.util.*
+import com.gscube.smsbulker.utils.NetworkUtils
 
 @Singleton
 @ContributesBinding(AppScope::class)
 class FirebaseRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val secureStorage: SecureStorage
+    private val secureStorage: SecureStorage,
+    private val networkUtils: NetworkUtils
 ) : FirebaseRepository {
 
     override suspend fun signInWithEmailAndPassword(email: String, password: String): Result<UserProfile> {
@@ -298,24 +300,38 @@ class FirebaseRepositoryImpl @Inject constructor(
         return try {
             val currentUser = auth.currentUser ?: return Result.failure(Exception("User not logged in"))
             
+            // Log the path we're querying for debugging
+            val path = "users/${currentUser.uid}/creditBalance/current"
+            android.util.Log.d("FirebaseRepo", "Querying credit balance at path: $path")
+            
+            // Check network connectivity
+            val source = if (networkUtils.isNetworkAvailable()) {
+                com.google.firebase.firestore.Source.SERVER
+            } else {
+                android.util.Log.d("FirebaseRepo", "Network unavailable, using cached data for credit balance")
+                com.google.firebase.firestore.Source.CACHE
+            }
+            
             val creditBalanceDoc = firestore.collection("users")
                 .document(currentUser.uid)
-                .collection("account")  // Changed from "creditBalance"
-                .document("creditBalance")  // Changed from "current"
-                .get()
+                .collection("creditBalance")
+                .document("current")
+                .get(source)
                 .await()
             
             if (creditBalanceDoc.exists()) {
+                android.util.Log.d("FirebaseRepo", "Credit balance document exists")
                 val creditBalance = CreditBalance(
                     availableCredits = creditBalanceDoc.getDouble("availableCredits") ?: 0.0,
                     usedCredits = creditBalanceDoc.getDouble("usedCredits") ?: 0.0,
-                    lastUpdated = creditBalanceDoc.getLong("lastUpdated") ?: System.currentTimeMillis(),
-                    nextRefillDate = creditBalanceDoc.getLong("nextRefillDate"),
+                    lastUpdated = (creditBalanceDoc.getTimestamp("lastUpdated")?.seconds ?: 0) * 1000L,
+                    nextRefillDate = creditBalanceDoc.getTimestamp("nextRefillDate")?.seconds?.let { it * 1000L },
                     autoRefillEnabled = creditBalanceDoc.getBoolean("autoRefillEnabled") ?: false,
                     lowBalanceAlert = creditBalanceDoc.getDouble("lowBalanceAlert") ?: 100.0
                 )
                 Result.success(creditBalance)
             } else {
+                android.util.Log.d("FirebaseRepo", "Credit balance document does not exist")
                 // Return default credit balance if document doesn't exist
                 Result.success(CreditBalance(
                     availableCredits = 0.0,
@@ -327,6 +343,7 @@ class FirebaseRepositoryImpl @Inject constructor(
                 ))
             }
         } catch (e: Exception) {
+            android.util.Log.e("FirebaseRepo", "Error getting credit balance: ${e.message}")
             Result.failure(e)
         }
     }
@@ -335,27 +352,41 @@ class FirebaseRepositoryImpl @Inject constructor(
         return try {
             val currentUser = auth.currentUser ?: return Result.failure(Exception("User not logged in"))
             
+            // Log the path we're querying for debugging
+            val path = "users/${currentUser.uid}/subscription/current"
+            android.util.Log.d("FirebaseRepo", "Querying subscription at path: $path")
+            
+            // Check network connectivity
+            val source = if (networkUtils.isNetworkAvailable()) {
+                com.google.firebase.firestore.Source.SERVER
+            } else {
+                android.util.Log.d("FirebaseRepo", "Network unavailable, using cached data for subscription")
+                com.google.firebase.firestore.Source.CACHE
+            }
+            
             val subscriptionDoc = firestore.collection("users")
                 .document(currentUser.uid)
-                .collection("account")  // Changed from "subscription"
-                .document("subscription")  // Changed from "current"
-                .get()
+                .collection("subscription")
+                .document("current")
+                .get(source)
                 .await()
             
             if (subscriptionDoc.exists()) {
+                android.util.Log.d("FirebaseRepo", "Subscription document exists")
                 val subscription = Subscription(
-                    planId = subscriptionDoc.getString("planId") ?: "free",
-                    planName = subscriptionDoc.getString("planName") ?: "Free",
-                    status = subscriptionDoc.getString("status") ?: "active",
-                    startDate = subscriptionDoc.getLong("startDate") ?: System.currentTimeMillis(),
-                    endDate = subscriptionDoc.getLong("endDate") ?: (System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000),
+                    planId = subscriptionDoc.getString("planId") ?: "",
+                    planName = subscriptionDoc.getString("planName") ?: "",
+                    status = subscriptionDoc.getString("status") ?: "expired",
+                    startDate = (subscriptionDoc.getTimestamp("startDate")?.seconds ?: 0) * 1000L,
+                    endDate = (subscriptionDoc.getTimestamp("endDate")?.seconds ?: 0) * 1000L,
                     autoRenew = subscriptionDoc.getBoolean("autoRenew") ?: false,
-                    monthlyCredits = subscriptionDoc.getDouble("monthlyCredits") ?: 100.0,
+                    monthlyCredits = subscriptionDoc.getDouble("monthlyCredits") ?: 0.0,
                     price = subscriptionDoc.getDouble("price") ?: 0.0,
-                    features = (subscriptionDoc.get("features") as? List<String>) ?: listOf("Basic SMS")
+                    features = subscriptionDoc.get("features") as? List<String> ?: emptyList()
                 )
                 Result.success(subscription)
             } else {
+                android.util.Log.d("FirebaseRepo", "Subscription document does not exist")
                 // Return default subscription if document doesn't exist
                 Result.success(Subscription(
                     planId = "free",
@@ -370,6 +401,7 @@ class FirebaseRepositoryImpl @Inject constructor(
                 ))
             }
         } catch (e: Exception) {
+            android.util.Log.e("FirebaseRepo", "Error getting subscription: ${e.message}")
             Result.failure(e)
         }
     }
