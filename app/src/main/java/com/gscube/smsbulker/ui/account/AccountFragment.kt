@@ -60,12 +60,10 @@ class AccountFragment : Fragment() {
                         result?.let { profileResult ->
                             profileResult.onSuccess { profile ->
                                 binding.apply {
-                                    textName.text = profile.name
+                                    textName.text = profile.company
                                     textEmail.text = profile.email
                                     textPhone.text = profile.phone
-                                    textCompany.text = profile.company ?: "Not specified"
                                     textCompanyAlias.text = "Sender ID: ${profile.companyAlias}"
-                                    
                                 }
                             }.onFailure { error ->
                                 showErrorSnackbar(error.message ?: "Failed to load profile")
@@ -158,4 +156,4 @@ class AccountFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
-} 
+}

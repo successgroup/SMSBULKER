@@ -17,6 +17,7 @@ import javax.inject.Named
 import javax.inject.Singleton
 import java.util.*
 import com.gscube.smsbulker.utils.NetworkUtils
+import com.google.firebase.firestore.FieldValue
 
 @Singleton
 @ContributesBinding(AppScope::class)
@@ -46,7 +47,7 @@ class FirebaseRepositoryImpl @Inject constructor(
                         company = userDoc.getString("company"),
                         emailVerified = firebaseUser.isEmailVerified,
                         apiKey = userDoc.getString("apiKey") ?: "",
-                        createdAt = userDoc.getLong("createdAt") ?: System.currentTimeMillis(),
+                        createdAt = (userDoc.getTimestamp("createdAt") ?.seconds ?: 0) * 1000L,
                         lastLogin = System.currentTimeMillis()
                     )
                     Result.success(profile)
@@ -69,6 +70,9 @@ class FirebaseRepositoryImpl @Inject constructor(
         return try {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             result.user?.let { firebaseUser ->
+                // Generate a unique proxy API key for this user
+                val proxyApiKey = UUID.randomUUID().toString()
+                
                 val profile = UserProfile(
                     userId = firebaseUser.uid,
                     email = email,
@@ -76,7 +80,7 @@ class FirebaseRepositoryImpl @Inject constructor(
                     phone = phone,
                     company = company,
                     emailVerified = false,
-                    apiKey = UUID.randomUUID().toString(),
+                    apiKey = proxyApiKey,  // This is the proxy key, not the actual Arkesel key
                     createdAt = System.currentTimeMillis(),
                     lastLogin = System.currentTimeMillis()
                 )
@@ -106,32 +110,52 @@ class FirebaseRepositoryImpl @Inject constructor(
                     .get()
                     .await()
                 
+                // Inside getCurrentUser() method where userDoc.exists() is true
                 if (userDoc.exists()) {
+                    // Declare creditBalanceDoc outside the try-catch
+                    var creditBalanceDoc: com.google.firebase.firestore.DocumentSnapshot? = null
+                    
                     // Get credit balance
-                    val creditBalanceDoc = firestore.collection("users")
-                        .document(currentUser.uid)
-                        .collection("creditBalance")
-                        .document("current")
-                        .get()
-                        .await()
+                    try {
+                        // Try server first
+                        creditBalanceDoc = firestore.collection("users")
+                            .document(currentUser.uid)
+                            .collection("creditBalance")
+                            .document("current")
+                            .get(com.google.firebase.firestore.Source.SERVER)
+                            .await()
+                        
+                        // Process document...
+                    } catch (e: Exception) {
+                        // If server fails, try cache
+                        android.util.Log.d("FirebaseRepo", "Server fetch failed, using cache: ${e.message}")
+                        creditBalanceDoc = firestore.collection("users")
+                            .document(currentUser.uid)
+                            .collection("creditBalance")
+                            .document("current")
+                            .get(com.google.firebase.firestore.Source.CACHE)
+                            .await()
+                        
+                        // Process document...
+                    }
                     
                     // Get subscription
                     val subscriptionDoc = firestore.collection("users")
                         .document(currentUser.uid)
                         .collection("subscription")
                         .document("current")
-                        .get()
+                        .get() // Remove the source parameter here
                         .await()
                     
                     // Create credit balance object if document exists
-                    val creditBalance = if (creditBalanceDoc.exists()) {
+                    val creditBalance = if (creditBalanceDoc?.exists() == true) {
                         CreditBalance(
-                            availableCredits = creditBalanceDoc.getDouble("availableCredits") ?: 0.0,
-                            usedCredits = creditBalanceDoc.getDouble("usedCredits") ?: 0.0,
-                            lastUpdated = creditBalanceDoc.getLong("lastUpdated") ?: System.currentTimeMillis(),
-                            nextRefillDate = creditBalanceDoc.getLong("nextRefillDate"),
-                            autoRefillEnabled = creditBalanceDoc.getBoolean("autoRefillEnabled") ?: false,
-                            lowBalanceAlert = creditBalanceDoc.getDouble("lowBalanceAlert") ?: 100.0
+                            availableCredits = creditBalanceDoc?.getDouble("availableCredits") ?: 0.0,
+                            usedCredits = creditBalanceDoc?.getDouble("usedCredits") ?: 0.0,
+                            lastUpdated = (creditBalanceDoc?.getTimestamp("lastUpdated")?.seconds ?: 0) * 1000L,
+                            nextRefillDate = (creditBalanceDoc?.getTimestamp("nextRefillDate")?.seconds ?: 0) * 1000L,
+                            autoRefillEnabled = creditBalanceDoc?.getBoolean("autoRefillEnabled") ?: false,
+                            lowBalanceAlert = creditBalanceDoc?.getDouble("lowBalanceAlert") ?: 100.0
                         )
                     } else null
                     
@@ -141,8 +165,9 @@ class FirebaseRepositoryImpl @Inject constructor(
                             planId = subscriptionDoc.getString("planId") ?: "free",
                             planName = subscriptionDoc.getString("planName") ?: "Free",
                             status = subscriptionDoc.getString("status") ?: "active",
-                            startDate = subscriptionDoc.getLong("startDate") ?: System.currentTimeMillis(),
-                            endDate = subscriptionDoc.getLong("endDate") ?: (System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000),
+                            startDate = (subscriptionDoc.getTimestamp("startDate") ?.seconds ?: 0) * 1000L,
+                            // Original line with error:
+                            endDate = (subscriptionDoc.getTimestamp("endDate")?.seconds ?: 0) * 1000L,
                             autoRenew = subscriptionDoc.getBoolean("autoRenew") ?: false,
                             monthlyCredits = subscriptionDoc.getDouble("monthlyCredits") ?: 100.0,
                             price = subscriptionDoc.getDouble("price") ?: 0.0,
@@ -160,8 +185,8 @@ class FirebaseRepositoryImpl @Inject constructor(
                         companyAlias = userDoc.getString("companyAlias") ?: "",
                         emailVerified = currentUser.isEmailVerified,
                         apiKey = userDoc.getString("apiKey") ?: "",
-                        createdAt = userDoc.getLong("createdAt") ?: System.currentTimeMillis(),
-                        lastLogin = userDoc.getLong("lastLogin") ?: System.currentTimeMillis(),
+                        createdAt = (userDoc.getTimestamp("createdAt") ?.seconds ?: 0) * 1000L,
+                        lastLogin = (userDoc.getTimestamp("lastLogin") ?.seconds ?: 0) * 1000L,
                         creditBalance = creditBalance,
                         subscription = subscription
                     )
@@ -316,7 +341,7 @@ class FirebaseRepositoryImpl @Inject constructor(
                 .document(currentUser.uid)
                 .collection("creditBalance")
                 .document("current")
-                .get(source)
+                .get() // Remove the source parameter to use default behavior
                 .await()
             
             if (creditBalanceDoc.exists()) {
@@ -368,7 +393,7 @@ class FirebaseRepositoryImpl @Inject constructor(
                 .document(currentUser.uid)
                 .collection("subscription")
                 .document("current")
-                .get(source)
+                .get() // Remove the source parameter to use default behavior
                 .await()
             
             if (subscriptionDoc.exists()) {
@@ -402,6 +427,39 @@ class FirebaseRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             android.util.Log.e("FirebaseRepo", "Error getting subscription: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    override suspend fun deductCredits(messageCount: Int): Result<Double> {
+        return try {
+            val currentUser = auth.currentUser ?: return Result.failure(Exception("User not authenticated"))
+            val userRef = firestore.collection("users").document(currentUser.uid)
+            
+            val result = firestore.runTransaction { transaction ->
+                val creditBalanceDoc = transaction.get(userRef.collection("creditBalance").document("current"))
+                
+                val availableCredits = creditBalanceDoc.getDouble("availableCredits") ?: 0.0
+                val usedCredits = creditBalanceDoc.getDouble("usedCredits") ?: 0.0
+                
+                if (availableCredits < messageCount) {
+                    throw Exception("Insufficient credits: Available $availableCredits, Required $messageCount")
+                }
+                
+                val newAvailableCredits = availableCredits - messageCount
+                val newUsedCredits = usedCredits + messageCount
+                
+                transaction.update(creditBalanceDoc.reference, mapOf(
+                    "availableCredits" to newAvailableCredits,
+                    "usedCredits" to newUsedCredits,
+                    "lastUpdated" to FieldValue.serverTimestamp()
+                ))
+                
+                newAvailableCredits
+            }.await()
+            
+            Result.success(result)
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }

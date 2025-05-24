@@ -19,6 +19,7 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
+import com.gscube.smsbulker.BuildConfig
 
 @ContributesTo(AppScope::class)
 @Module
@@ -28,9 +29,9 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("api_key")
-    fun provideApiKey(): String {
-        // Hardcode the API key for now
-        return "ZnhoSWFRbWhBWmpIc3N3eUNEZW8"
+    fun provideApiKey(secureStorage: SecureStorage): String {
+        // Use the user's API key from secure storage
+        return secureStorage.getApiKey() ?: ""
     }
 
     @Provides
@@ -45,10 +46,13 @@ object NetworkModule {
     @Singleton
     fun provideAuthInterceptor(@Named("api_key") apiKey: String): Interceptor {
         return Interceptor { chain ->
+            // Use the user's API key if available, otherwise fall back to the default
+            val actualApiKey = if (apiKey.isNotBlank()) apiKey else BuildConfig.ARKESEL_API_KEY
+            
             val request = chain.request().newBuilder()
                 .addHeader("Accept", "application/json")
                 .addHeader("Content-Type", "application/json")
-                .addHeader("api-key", apiKey)
+                .addHeader("api-key", actualApiKey)
                 .build()
             chain.proceed(request)
         }

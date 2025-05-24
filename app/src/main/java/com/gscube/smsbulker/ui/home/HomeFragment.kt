@@ -166,12 +166,18 @@ class HomeFragment : Fragment() {
         // Set initial character count format
         binding.characterCountText.text = "0(0)"
         
+        // In setupMessageInput() method, modify the TextWatcher
         binding.messageInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(charSequence: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(charSequence: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(editable: Editable?) {
                 editable?.toString()?.let { text -> 
                     viewModel.updateMessageContent(text)
+                    // If user is editing a template, clear the template selection
+                    if (viewModel.state.value.selectedTemplate != null && 
+                        text != viewModel.state.value.selectedTemplate?.content) {
+                        viewModel.clearSelectedTemplate()
+                    }
                     // Calculate message pages (160 characters per page)
                     val charCount = text.length
                     val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 160) + 1
@@ -193,14 +199,28 @@ class HomeFragment : Fragment() {
                     // Update message input when template changes
                     state.selectedTemplate?.let { template ->
                         if (binding.messageInput.text.toString() != template.content) {
+                            // Save cursor position
+                            val cursorPosition = binding.messageInput.selectionStart
                             binding.messageInput.setText(template.content)
+                            // Restore cursor position, but ensure it's within bounds
+                            val newPosition = minOf(cursorPosition, template.content.length)
+                            if (newPosition > 0) {
+                                binding.messageInput.setSelection(newPosition)
+                            }
                         }
                         binding.selectedTemplateText.text = "Selected template: ${template.title}"
                         binding.selectedTemplateText.isVisible = true
                     } ?: run {
                         // If no template is selected, show the persisted message
                         if (binding.messageInput.text.toString() != state.message) {
+                            // Save cursor position
+                            val cursorPosition = binding.messageInput.selectionStart
                             binding.messageInput.setText(state.message)
+                            // Restore cursor position, but ensure it's within bounds
+                            val newPosition = minOf(cursorPosition, state.message.length)
+                            if (newPosition > 0) {
+                                binding.messageInput.setSelection(newPosition)
+                            }
                         }
                         binding.selectedTemplateText.isVisible = false
                     }
@@ -310,7 +330,7 @@ class HomeFragment : Fragment() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Confirm Send")
             .setMessage("Are you sure you want to send this message to ${state.recipients.size} recipients?\n\n" +
-                       "This will consume $totalCredits credits out of ${state.availableCredits} available.")
+                       "This will consume $totalCredits credit(s) out of ${state.availableCredits} available.")
             .setPositiveButton("Send") { _, _ ->
                 viewModel.sendBulkSms()
             }

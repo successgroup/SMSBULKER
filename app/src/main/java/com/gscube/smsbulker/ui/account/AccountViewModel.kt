@@ -32,18 +32,21 @@ class AccountViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 firebaseRepository.getCurrentUser().onSuccess { profile ->
-                    _userProfile.value = Result.success(profile!!)
-                    // Assuming credit balance and subscription data are stored in the UserProfile
-                    // or can be derived from it
-                    profile.creditBalance?.let {
-                        _creditBalance.value = Result.success(it)
+                    if (profile != null) {
+                        _userProfile.value = Result.success(profile)
+                    } else {
+                        _userProfile.value = Result.failure(Exception("User not found"))
                     }
-                    profile.subscription?.let {
-                        _subscription.value = Result.success(it)
-                    }
+                    // Remove these as they should be loaded separately
+                    // profile.creditBalance?.let { _creditBalance.value = Result.success(it) }
+                    // profile.subscription?.let { _subscription.value = Result.success(it) }
                 }.onFailure { error ->
                     _userProfile.value = Result.failure(error)
                 }
+                
+                // Load credit balance and subscription separately
+                loadCreditBalance()
+                loadSubscription()
             } catch (e: Exception) {
                 _userProfile.value = Result.failure(e)
             }

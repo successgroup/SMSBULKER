@@ -28,7 +28,7 @@ data class HomeViewState(
     val needsLogin: Boolean = false,
     val sendingStage: SendingProgressDialog.SendStage? = null,
     val message: String = "",
-    val availableCredits: Int = 0  // Add this line
+    val availableCredits: Double = 0.0  // Change from Int to Double
 )
 
 @Singleton
@@ -52,8 +52,9 @@ class HomeViewModel @Inject constructor(
 
     private fun loadCreditBalance() {
         viewModelScope.launch {
-            accountRepository.getCreditBalance().onSuccess { balance ->
-                _state.update { it.copy(availableCredits = balance.availableCredits.toInt()) }
+            firebaseRepository.getCreditBalance().onSuccess { balance ->
+                // Don't convert to Int
+                _state.update { it.copy(availableCredits = balance.availableCredits) }
             }.onFailure { error ->
                 _state.update { it.copy(error = "Failed to load credit balance: ${error.message}") }
             }
@@ -93,7 +94,7 @@ class HomeViewModel @Inject constructor(
                             )}
                         } else {
                             _state.update { it.copy(
-                                senderID = profile.company,
+                                senderID = profile.companyAlias,
                                 isLoading = false
                             )}
                         }
@@ -245,9 +246,22 @@ class HomeViewModel @Inject constructor(
         _state.update { it.copy(recipients = emptyList()) }
     }
 
+    fun clearSelectedTemplate() {
+        _state.update { it.copy(
+            selectedTemplate = null
+        )}
+    }
+
     fun sendBulkSms() {
         val currentState = state.value
-        val message = currentState.selectedTemplate?.content ?: return
+        // Fix: Check both template content and manual message
+        val message = currentState.selectedTemplate?.content ?: currentState.message
+        
+        if (message.isNullOrBlank()) {
+            _state.update { it.copy(error = "Please enter a message or select a template") }
+            return
+        }
+        
         val recipients = currentState.recipients
         
         if (recipients.isEmpty()) {

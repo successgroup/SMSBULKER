@@ -25,17 +25,8 @@ class SmsBulkerApplication : Application() {
         appComponent = DaggerAppComponent.factory().create(this)
         appComponent.inject(this)
         
-        // Initialize API key if not already set
-        if (secureStorage.getApiKey().isNullOrEmpty()) {
-            secureStorage.saveAuthData(
-                userId = "test_user",
-                apiKey = "ZnhoSWFRbWhBWmpIc3N3eUNEZW8",
-                email = "test@example.com",
-                name = "Test User",
-                companyName = "CEGraceland",
-                companyAlias = "CEGraceland"
-            )
-        }
+        // Remove the test credentials initialization
+        // Let the login flow handle authentication properly
     }
 
     companion object {

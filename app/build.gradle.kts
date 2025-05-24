@@ -26,7 +26,9 @@ android {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
 
-        buildConfigField("String", "API_KEY", "\"YOUR_TEST_API_KEY_HERE\"") // Replace with actual test API key
+        // Define BuildConfig fields
+        buildConfigField("String", "API_KEY", "\"YOUR_TEST_API_KEY_HERE\"")
+        buildConfigField("String", "ARKESEL_API_KEY", "\"YOUR_ARKESEL_API_KEY_HERE\"")
     }
 
     buildTypes {
@@ -57,7 +59,7 @@ android {
     buildFeatures {
         viewBinding = true
         dataBinding = true
-        buildConfig = true
+        buildConfig = true  // This ensures BuildConfig is generated
     }
 
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
@@ -181,3 +183,9 @@ dependencies {
     // Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
+// Delete these lines:
+// defaultConfig {
+//     // Other config...
+//     buildConfigField("String", "API_KEY", "\"YOUR_TEST_API_KEY_HERE\"")
+//     buildConfigField("String", "ARKESEL_API_KEY", "\"YOUR_DEFAULT_ARKESEL_API_KEY\"")
+// }

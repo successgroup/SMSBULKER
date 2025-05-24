@@ -7,6 +7,8 @@ import com.gscube.smsbulker.data.model.*
 import com.gscube.smsbulker.data.network.ArkeselApi
 import com.gscube.smsbulker.di.AppScope
 import com.gscube.smsbulker.repository.BulkSmsRepository
+import com.gscube.smsbulker.repository.FirebaseRepository
+import com.gscube.smsbulker.repository.UserRepository
 import com.gscube.smsbulker.utils.SecureStorage
 import com.squareup.anvil.annotations.ContributesBinding
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +29,9 @@ class BulkSmsRepositoryImpl @Inject constructor(
     @Named("applicationContext") private val context: Context,
     private val arkeselApi: ArkeselApi,
     @Named("sandbox_mode") private val sandboxMode: Boolean,
-    private val secureStorage: SecureStorage
+    private val secureStorage: SecureStorage,
+    private val firebaseRepository: FirebaseRepository,
+    private val userRepository: UserRepository // Added UserRepository parameter
 ) : BulkSmsRepository {
 
     private fun convertToArkeselTemplate(template: String): String {
@@ -40,7 +44,14 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun sendBulkSms(request: BulkSmsRequest): Result<BulkSmsResponse> {
         return try {
-            // Get the final message text
+            // First, try to deduct credits
+            val messageCount = request.recipients.size
+            val deductResult = firebaseRepository.deductCredits(messageCount)
+            if (deductResult.isFailure) {
+                return Result.failure(deductResult.exceptionOrNull() ?: Exception("Failed to deduct credits"))
+            }
+
+            // If credit deduction successful, proceed with sending
             val messageText = request.messageTemplate?.let { template ->
                 request.message?.let { convertToArkeselTemplate(it) } ?: convertToArkeselTemplate(template.content)
             } ?: request.message?.let { convertToArkeselTemplate(it) } ?: return Result.failure(Exception("No message content provided"))
@@ -64,9 +75,18 @@ class BulkSmsRepositoryImpl @Inject constructor(
                 }
             }
 
+            // Get company name from user repository as fallback
+            val fallbackSenderId = try {
+                val user = userRepository.getCurrentUser()
+                user.company?.takeIf { !it.isBlank() } ?: user.companyAlias.takeIf { !it.isBlank() } ?: "SMSBulker"
+            } catch (e: Exception) {
+                Log.w("BulkSmsRepository", "Failed to get company name: ${e.message}")
+                "SMSBulker" // Generic fallback if everything fails
+            }
+            
             // Create the request
             val smsRequest = ArkeselSmsRequest(
-                sender = request.senderId.takeIf { !it.isNullOrBlank() } ?: "CEGraceland",
+                sender = request.senderId.takeIf { !it.isNullOrBlank() } ?: fallbackSenderId,
                 message = if (request.messageTemplate?.variables?.isNotEmpty() == true) {
                     convertToArkeselTemplate(messageText)
                 } else {

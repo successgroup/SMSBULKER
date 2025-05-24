@@ -24,6 +24,7 @@ class UserRepositoryImpl @Inject constructor(
     
     private val userAdapter = moshi.adapter(User::class.java)
 
+    // Change this method to match the interface
     override suspend fun getCurrentUser(): User {
         val userId = secureStorage.getUserId()
         val email = secureStorage.getEmail()
@@ -35,7 +36,7 @@ class UserRepositoryImpl @Inject constructor(
                 email = email,
                 apiKey = apiKey,
                 name = secureStorage.getName() ?: "",
-                companyName = secureStorage.getCompanyName(),
+                company = secureStorage.getCompany(),
                 companyAlias = secureStorage.getCompanyAlias() ?: "",
                 phone = secureStorage.getPhone(),
                 credits = secureStorage.getCredits(),
@@ -52,7 +53,7 @@ class UserRepositoryImpl @Inject constructor(
             apiKey = user.apiKey,
             email = user.email,
             name = user.name,
-            companyName = user.companyName ?: "",
+            company = user.company ?: "",  // Changed from companyName to company
             companyAlias = user.companyAlias,
             phone = user.phone ?: "",
             credits = user.credits,
@@ -65,7 +66,7 @@ class UserRepositoryImpl @Inject constructor(
         email = "",
         apiKey = "",
         name = "",
-        companyName = null,
+        company = null,  // Changed from companyName to company
         companyAlias = "",
         phone = null,
         credits = 0,

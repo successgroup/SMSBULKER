@@ -25,4 +25,7 @@ interface FirebaseRepository {
     suspend fun refreshApiKey(): Result<Unit>
     suspend fun getCreditBalance(): Result<CreditBalance>
     suspend fun getSubscription(): Result<Subscription>
+    
+    // Add this new method
+    suspend fun deductCredits(messageCount: Int): Result<Double>
 }

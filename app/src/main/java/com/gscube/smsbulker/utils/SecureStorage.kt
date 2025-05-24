@@ -12,7 +12,7 @@ class SecureStorage(context: Context) {
         private const val KEY_API_KEY = "api_key"
         private const val KEY_EMAIL = "email"
         private const val KEY_NAME = "name"
-        private const val KEY_COMPANY_NAME = "company_name"
+        private const val KEY_COMPANY = "company"  // Changed from KEY_COMPANY_NAME
         private const val KEY_COMPANY_ALIAS = "company_alias"
         private const val KEY_PHONE = "phone"
         private const val KEY_CREDITS = "credits"
@@ -33,6 +33,7 @@ class SecureStorage(context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
+    // Update saveUserProfile method
     @Synchronized
     fun saveUserProfile(profile: UserProfile) {
         prefs.edit().apply {
@@ -40,8 +41,8 @@ class SecureStorage(context: Context) {
             putString(KEY_API_KEY, profile.apiKey)
             putString(KEY_EMAIL, profile.email)
             putString(KEY_NAME, profile.name)
-            putString(KEY_COMPANY_NAME, profile.company ?: "")
-            putString(KEY_COMPANY_ALIAS, profile.company ?: "")
+            putString(KEY_COMPANY, profile.company ?: "")  // Changed from KEY_COMPANY_NAME
+            putString(KEY_COMPANY_ALIAS, profile.companyAlias)  // Fixed: use profile.companyAlias
             putString(KEY_PHONE, profile.phone)
             putBoolean(KEY_EMAIL_VERIFIED, profile.emailVerified)
             putLong(KEY_CREATED_AT, profile.createdAt)
@@ -51,6 +52,7 @@ class SecureStorage(context: Context) {
         }
     }
 
+    // Update getUserProfile method
     @Synchronized
     fun getUserProfile(): UserProfile? {
         val userId = prefs.getString(KEY_USER_ID, null) ?: return null
@@ -59,7 +61,8 @@ class SecureStorage(context: Context) {
             email = prefs.getString(KEY_EMAIL, "") ?: "",
             name = prefs.getString(KEY_NAME, "") ?: "",
             phone = prefs.getString(KEY_PHONE, "") ?: "",
-            company = prefs.getString(KEY_COMPANY_NAME, null),
+            company = prefs.getString(KEY_COMPANY, null),  // Changed from KEY_COMPANY_NAME
+            companyAlias = prefs.getString(KEY_COMPANY_ALIAS, "") ?: "",
             emailVerified = prefs.getBoolean(KEY_EMAIL_VERIFIED, false),
             apiKey = prefs.getString(KEY_API_KEY, "") ?: "",
             createdAt = prefs.getLong(KEY_CREATED_AT, 0),
@@ -67,13 +70,14 @@ class SecureStorage(context: Context) {
         )
     }
 
+    // Update saveAuthData method
     @Synchronized
     fun saveAuthData(
         userId: String,
         apiKey: String,
         email: String,
         name: String = "",
-        companyName: String = "",
+        company: String = "",  // Changed from companyName
         companyAlias: String = "",
         phone: String = "",
         credits: Int = 0,
@@ -87,7 +91,7 @@ class SecureStorage(context: Context) {
             putString(KEY_API_KEY, apiKey)
             putString(KEY_EMAIL, email)
             putString(KEY_NAME, name)
-            putString(KEY_COMPANY_NAME, companyName)
+            putString(KEY_COMPANY, company)  // Changed from KEY_COMPANY_NAME
             putString(KEY_COMPANY_ALIAS, companyAlias)
             putString(KEY_PHONE, phone)
             putInt(KEY_CREDITS, credits)
@@ -119,7 +123,7 @@ class SecureStorage(context: Context) {
     fun getName(): String? = prefs.getString(KEY_NAME, null)
 
     @Synchronized
-    fun getCompanyName(): String? = prefs.getString(KEY_COMPANY_NAME, null)
+    fun getCompany(): String? = prefs.getString(KEY_COMPANY, null)
 
     @Synchronized
     fun getCompanyAlias(): String? = prefs.getString(KEY_COMPANY_ALIAS, null)
