@@ -71,9 +71,8 @@ class HomeViewModel @Inject constructor(
             try {
                 _state.update { it.copy(isLoading = true) }
                 
-                // First try to get from UserRepository (SecureStorage)
                 val user = try {
-                    userRepository.getCurrentUser()  // This returns non-null User
+                    userRepository.getCurrentUser()
                 } catch (e: Exception) {
                     _state.update { it.copy(
                         error = "Failed to load user info: ${e.message}",
@@ -81,6 +80,9 @@ class HomeViewModel @Inject constructor(
                     )}
                     return@launch
                 }
+                
+                // Add this debug log
+                android.util.Log.d("HomeViewModel", "User companyAlias: '${user.companyAlias}'")
                 
                 if (user.companyAlias.isBlank()) {
                     // If no data in SecureStorage, try to get from Firebase
@@ -114,6 +116,7 @@ class HomeViewModel @Inject constructor(
                     }
                 } else {
                     // Use data from SecureStorage
+                    android.util.Log.d("HomeViewModel", "Setting senderID to: '${user.companyAlias}'")
                     _state.update { it.copy(
                         senderID = user.companyAlias,
                         isLoading = false

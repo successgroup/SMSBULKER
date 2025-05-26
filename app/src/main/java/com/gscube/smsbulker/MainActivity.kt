@@ -5,20 +5,18 @@ import android.os.Bundle
 import android.util.Log
 import android.view.Menu
 import androidx.appcompat.app.AppCompatActivity
-import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
-import androidx.navigation.ui.onNavDestinationSelected
-import com.google.android.material.navigation.NavigationView
 import com.gscube.smsbulker.databinding.ActivityMainBinding
 import com.gscube.smsbulker.ui.auth.AuthViewModel
 import com.gscube.smsbulker.ui.auth.LoginActivity
 import com.gscube.smsbulker.SmsBulkerApplication
 import javax.inject.Inject
+import androidx.navigation.fragment.NavHostFragment
 
 class MainActivity : AppCompatActivity() {
     private val TAG = "MainActivity"
@@ -32,6 +30,9 @@ class MainActivity : AppCompatActivity() {
         ViewModelProvider(this, viewModelFactory)[AuthViewModel::class.java]
     }
     private var isNavigating = false
+
+    // Add this import at the top with other imports
+    
 
     override fun onCreate(savedInstanceState: Bundle?) {
         (application as SmsBulkerApplication).appComponent.inject(this)
@@ -49,16 +50,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setSupportActionBar(binding.appBarMain.toolbar)
+        setSupportActionBar(binding.toolbar)
 
-        setupNavigation()
-    }
-
-    private fun setupNavigation() {
-        val drawerLayout: DrawerLayout = binding.drawerLayout
-        val navView: NavigationView = binding.navView
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-
+        // Get the NavHostFragment first
+        val navHostFragment = supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment_content_main) as NavHostFragment
+        val navController = navHostFragment.navController
+        
         // Set up top-level destinations (these won't show back button)
         appBarConfiguration = AppBarConfiguration(
             setOf(
@@ -67,26 +65,29 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_templates,
                 R.id.nav_analytics,
                 R.id.nav_account
-            ),
-            drawerLayout
+            )
         )
 
         setupActionBarWithNavController(navController, appBarConfiguration)
-        navView.setupWithNavController(navController)
+        binding.bottomNavigation.setupWithNavController(navController)
+    }
 
-        // Handle navigation item clicks
-        navView.setNavigationItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.nav_logout -> {
-                    handleLogout()
-                    true
-                }
-                else -> {
-                    drawerLayout.closeDrawers()
-                    menuItem.onNavDestinationSelected(navController)
-                }
-            }
-        }
+    // Remove the setupNavigation() method since we've moved its logic directly into onCreate
+    private fun setupNavigation() {
+        val navController = findNavController(R.id.nav_host_fragment_content_main)
+        
+        appBarConfiguration = AppBarConfiguration(
+            setOf(
+                R.id.nav_home,
+                R.id.nav_contacts,
+                R.id.nav_templates,
+                R.id.nav_analytics,
+                R.id.nav_account
+            )
+        )
+
+        setupActionBarWithNavController(navController, appBarConfiguration)
+        binding.bottomNavigation.setupWithNavController(navController)
     }
 
     private fun handleLogout() {
@@ -102,7 +103,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startLoginActivity() {
-        Log.d(TAG, "Starting LoginActivity")
         val intent = Intent(this, LoginActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)

@@ -256,6 +256,7 @@ class HomeFragment : Fragment() {
                         Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
                         viewModel.clearSuccess()
                     }
+                    binding.senderIdText.text = state.senderID?.let { "(Sender ID: $it)" } ?: ""
                 }
             }
         }

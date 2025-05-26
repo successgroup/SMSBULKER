@@ -1,15 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="sea_blue_200">#80DEEA</color>
-    <color name="sea_blue_500">#00ACC1</color>
-    <color name="sea_blue_700">#0097A7</color>
+    <!-- Primary Colors - More vibrant -->
+    <color name="sea_blue_200">#4FC3F7</color>
+    <color name="sea_blue_500">#29B6F6</color>
+    <color name="sea_blue_700">#0288D1</color>
+    
+    <color name="background">#F5F5F5</color>
+
+    <!-- Secondary Colors -->
     <color name="teal_200">#FF03DAC5</color>
     <color name="teal_700">#FF018786</color>
+    
+    <!-- Accent Colors -->
+    <color name="purple_500">#9C27B0</color>
+    <color name="orange_500">#FF9800</color>
+    <color name="green_500">#4CAF50</color>
+    <color name="red_500">#F44336</color>
+    <color name="indigo_500">#3F51B5</color>
+    
+    <!-- Basic Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="light_gray">#F5F5F5</color>
 
     <!-- Analytics Chart Colors -->
     <color name="sent_color">#4CAF50</color>
     <color name="delivered_color">#2196F3</color>
     <color name="failed_color">#F44336</color>
+    
+    <!-- Avatar Background Colors -->
+    <color name="avatar_color_1">#E91E63</color>
+    <color name="avatar_color_2">#9C27B0</color>
+    <color name="avatar_color_3">#673AB7</color>
+    <color name="avatar_color_4">#3F51B5</color>
+    <color name="avatar_color_5">#2196F3</color>
+    <color name="avatar_color_6">#00BCD4</color>
+    <color name="avatar_color_7">#009688</color>
+    <color name="avatar_color_8">#4CAF50</color>
+    <color name="avatar_color_9">#8BC34A</color>
+    <color name="avatar_color_10">#CDDC39</color>
+    <color name="avatar_color_11">#FFC107</color>
+    <color name="avatar_color_12">#FF9800</color>
 </resources>
