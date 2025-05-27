@@ -24,3 +24,20 @@ data class ArkeselMessageResult(
     @Json(name = "recipient") val recipient: String,
     @Json(name = "id") val id: String
 )
+
+@JsonClass(generateAdapter = true)
+data class DeliveryReport(
+    @Json(name = "message_id") val messageId: String,
+    @Json(name = "recipient") val recipient: String,
+    @Json(name = "status") val status: String, // "delivered", "failed", "pending"
+    @Json(name = "timestamp") val timestamp: Long,
+    @Json(name = "error_code") val errorCode: String? = null,
+    @Json(name = "error_message") val errorMessage: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ArkeselAnalyticsRequest(
+    @Json(name = "start_date") val startDate: String,
+    @Json(name = "end_date") val endDate: String,
+    @Json(name = "message_ids") val messageIds: List<String>? = null
+)

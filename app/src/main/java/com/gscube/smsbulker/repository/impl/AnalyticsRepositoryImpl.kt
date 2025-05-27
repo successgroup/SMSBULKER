@@ -7,6 +7,7 @@ import com.gscube.smsbulker.data.FailureAnalysis
 import com.gscube.smsbulker.data.network.AnalyticsApiService
 import com.gscube.smsbulker.di.AppScope
 import com.gscube.smsbulker.repository.AnalyticsRepository
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.squareup.anvil.annotations.ContributesBinding
 import kotlinx.coroutines.async
@@ -24,11 +25,18 @@ import javax.inject.Singleton
 class AnalyticsRepositoryImpl @Inject constructor(
     private val apiService: AnalyticsApiService,
     @Named("applicationContext") private val context: Context,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth // Add Firebase Auth
 ) : AnalyticsRepository {
 
+    private fun getCurrentUserId(): String? = auth.currentUser?.uid
+
     override suspend fun getAnalyticsSummary(): AnalyticsSummary {
-        val summaryRef = firestore.collection("analytics").document("summary")
+        val userId = getCurrentUserId() ?: throw SecurityException("User not authenticated")
+        val summaryRef = firestore.collection("users")
+            .document(userId)
+            .collection("analytics")
+            .document("summary")
         val snapshot = summaryRef.get().await()
         return snapshot.toObject(AnalyticsSummary::class.java) ?: AnalyticsSummary(
             totalMessages = 0,
@@ -40,7 +48,10 @@ class AnalyticsRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getDailyStats(startTime: Long, endTime: Long): List<DailyStats> {
-        return firestore.collection("analytics")
+        val userId = getCurrentUserId() ?: throw SecurityException("User not authenticated")
+        return firestore.collection("users")
+            .document(userId)
+            .collection("analytics")
             .document("daily_stats")
             .collection("stats")
             .whereGreaterThanOrEqualTo("timestamp", startTime)
@@ -51,8 +62,12 @@ class AnalyticsRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getFailureAnalysis(): List<FailureAnalysis> {
+        val userId = getCurrentUserId() ?: throw SecurityException("User not authenticated")
         return try {
-            val failuresRef = firestore.collection("analytics").document("failures")
+            val failuresRef = firestore.collection("users")
+                .document(userId)
+                .collection("analytics")
+                .document("failures")
             val snapshot = failuresRef.get().await()
             if (snapshot.exists()) {
                 listOf(snapshot.toObject(FailureAnalysis::class.java)!!)
@@ -61,6 +76,63 @@ class AnalyticsRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             emptyList()
+        }
+    }
+
+    override suspend fun updateAnalytics(messagesSent: Int, messagesFailed: Int) {
+        val userId = getCurrentUserId() ?: throw SecurityException("User not authenticated")
+        coroutineScope {
+            // Update user-specific summary
+            val summaryRef = firestore.collection("users")
+                .document(userId)
+                .collection("analytics")
+                .document("summary")
+            val currentSummary = getAnalyticsSummary()
+            
+            val updatedSummary = currentSummary.copy(
+                totalMessages = currentSummary.totalMessages + messagesSent,
+                deliveredMessages = currentSummary.deliveredMessages + (messagesSent - messagesFailed),
+                failedMessages = currentSummary.failedMessages + messagesFailed,
+                creditsUsed = currentSummary.creditsUsed + messagesSent
+            )
+            
+            summaryRef.set(updatedSummary).await()
+            
+            // Update user-specific daily stats
+            val today = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            
+            val dailyStatsRef = firestore.collection("users")
+                .document(userId)
+                .collection("analytics")
+                .document("daily_stats")
+                .collection("stats")
+                .document(today.toString())
+            
+            val dailyStats = dailyStatsRef.get().await()
+            if (dailyStats.exists()) {
+                val currentStats = dailyStats.toObject(DailyStats::class.java)!!
+                val updatedStats = currentStats.copy(
+                    totalMessages = currentStats.totalMessages + messagesSent,
+                    deliveredMessages = currentStats.deliveredMessages + (messagesSent - messagesFailed),
+                    failedMessages = currentStats.failedMessages + messagesFailed,
+                    creditsUsed = currentStats.creditsUsed + messagesSent
+                )
+                dailyStatsRef.set(updatedStats).await()
+            } else {
+                val newStats = DailyStats(
+                    timestamp = today,
+                    totalMessages = messagesSent,
+                    deliveredMessages = messagesSent - messagesFailed,
+                    failedMessages = messagesFailed,
+                    creditsUsed = messagesSent
+                )
+                dailyStatsRef.set(newStats).await()
+            }
         }
     }
 
@@ -191,54 +263,7 @@ class AnalyticsRepositoryImpl @Inject constructor(
         return summary.creditsRemaining
     }
 
-    override suspend fun updateAnalytics(messagesSent: Int, messagesFailed: Int) {
-        coroutineScope {
-            // Update summary
-            val summaryRef = firestore.collection("analytics").document("summary")
-            val currentSummary = getAnalyticsSummary()
-            
-            val updatedSummary = currentSummary.copy(
-                totalMessages = currentSummary.totalMessages + messagesSent,
-                deliveredMessages = currentSummary.deliveredMessages + (messagesSent - messagesFailed),
-                failedMessages = currentSummary.failedMessages + messagesFailed,
-                creditsUsed = currentSummary.creditsUsed + messagesSent
-            )
-            
-            summaryRef.set(updatedSummary).await()
-            
-            // Update daily stats
-            val today = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
-            
-            val dailyStatsRef = firestore.collection("analytics")
-                .document("daily_stats")
-                .collection("stats")
-                .document(today.toString())
-            
-            val dailyStats = dailyStatsRef.get().await()
-            if (dailyStats.exists()) {
-                val currentStats = dailyStats.toObject(DailyStats::class.java)!!
-                val updatedStats = currentStats.copy(
-                    totalMessages = currentStats.totalMessages + messagesSent,
-                    deliveredMessages = currentStats.deliveredMessages + (messagesSent - messagesFailed),
-                    failedMessages = currentStats.failedMessages + messagesFailed,
-                    creditsUsed = currentStats.creditsUsed + messagesSent
-                )
-                dailyStatsRef.set(updatedStats).await()
-            } else {
-                val newStats = DailyStats(
-                    timestamp = today,
-                    totalMessages = messagesSent,
-                    deliveredMessages = messagesSent - messagesFailed,
-                    failedMessages = messagesFailed,
-                    creditsUsed = messagesSent
-                )
-                dailyStatsRef.set(newStats).await()
-            }
-        }
-    }
+
+
+
 }

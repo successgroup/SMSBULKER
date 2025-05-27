@@ -37,6 +37,9 @@ class SmsRepositoryImpl @Inject constructor(
             "name" to recipient
         )
 
+        // Inside the SmsRepositoryImpl class, update the request creation:
+        
+        // For single SMS
         val request = ArkeselSmsRequest(
             sender = sender ?: "SMSBULKER",
             message = if (message.contains("{")) {
@@ -47,9 +50,11 @@ class SmsRepositoryImpl @Inject constructor(
             recipients = mapOf(
                 recipient to recipientMap
             ),
-            sandbox = sandboxMode
+            sandbox = sandboxMode,
+            callbackUrl = "https://your-firebase-function-url.com/webhook/delivery-report" // Add this line
         )
-
+        
+        // Similarly update the bulk SMS and personalized SMS methods
         Log.d("SmsRepository", "Sending SMS request: $request")
         val response = arkeselApi.sendSms(request)
         Log.d("SmsRepository", "SMS response code: ${response.code()}")
