@@ -9,6 +9,7 @@ import com.gscube.smsbulker.di.DaggerAppComponent
 import com.gscube.smsbulker.utils.NetworkUtils
 import com.gscube.smsbulker.utils.SecureStorage
 import javax.inject.Inject
+import com.gscube.smsbulker.utils.SecurityProviderInstaller
 
 class SmsBulkerApplication : Application() {
     
@@ -21,6 +22,11 @@ class SmsBulkerApplication : Application() {
     lateinit var appComponent: AppComponent
         private set
 
+    // Add this to your SmsBulkerApplication.kt file
+
+
+    
+    // Inside the onCreate method
     override fun onCreate() {
         super.onCreate()
         

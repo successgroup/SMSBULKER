@@ -28,7 +28,7 @@ data class HomeViewState(
     val needsLogin: Boolean = false,
     val sendingStage: SendingProgressDialog.SendStage? = null,
     val message: String = "",
-    val availableCredits: Double = 0.0  // Change from Int to Double
+    val availableCredits: Int = 0  // Change from Int to Double
 )
 
 @Singleton
@@ -69,63 +69,55 @@ class HomeViewModel @Inject constructor(
     private fun loadUserInfo() {
         viewModelScope.launch {
             try {
-                _state.update { it.copy(isLoading = true) }
-                
-                val user = try {
-                    userRepository.getCurrentUser()
-                } catch (e: Exception) {
-                    _state.update { it.copy(
-                        error = "Failed to load user info: ${e.message}",
-                        isLoading = false
-                    )}
-                    return@launch
-                }
-                
-                // Add this debug log
-                android.util.Log.d("HomeViewModel", "User companyAlias: '${user.companyAlias}'")
-                
-                if (user.companyAlias.isBlank()) {
-                    // If no data in SecureStorage, try to get from Firebase
-                    firebaseRepository.getCurrentUser().onSuccess { profile ->
-                        if (profile == null) {
-                            // User is not logged in or no profile exists
-                            _state.update { it.copy(
-                                error = "Please log in to continue",
-                                isLoading = false,
-                                needsLogin = true
-                            )}
-                        } else {
-                            _state.update { it.copy(
-                                senderID = profile.companyAlias,
-                                isLoading = false
-                            )}
-                        }
-                    }.onFailure { e ->
-                        if (e.message?.contains("Permission denied") == true) {
-                            _state.update { it.copy(
-                                error = "Please log in to continue",
-                                isLoading = false,
-                                needsLogin = true
-                            )}
-                        } else {
-                            _state.update { it.copy(
-                                error = "Failed to load user profile: ${e.message}",
-                                isLoading = false
-                            )}
-                        }
+                _state.update { it.copy(isLoading = true, error = null) }
+
+                // Prioritize getting user profile from Firebase
+                firebaseRepository.getCurrentUser().onSuccess { profile ->
+                    if (profile == null) {
+                        // User is not logged in or no profile exists in Firebase
+                        _state.update { it.copy(
+                            error = "Please log in to continue",
+                            isLoading = false,
+                            needsLogin = true,
+                            senderID = null // Clear sender ID if user is not logged in
+                        )}
+                    } else if (!profile.companyAlias.isBlank()) {
+                        // Update the sender ID with the company alias from Firebase
+                        android.util.Log.d("HomeViewModel", "Firebase companyAlias: '${profile.companyAlias}'")
+                        _state.update { it.copy(
+                            senderID = profile.companyAlias,
+                            isLoading = false,
+                            needsLogin = false
+                        )}
+                    } else {
+                        // Profile exists but company alias is blank in Firebase
+                        android.util.Log.d("HomeViewModel", "Firebase companyAlias is blank")
+                        _state.update { it.copy(
+                            error = "Please set your Company Alias in the Account section.",
+                            isLoading = false,
+                            needsLogin = false,
+                            senderID = null // Clear sender ID if alias is blank
+                        )}
                     }
-                } else {
-                    // Use data from SecureStorage
-                    android.util.Log.d("HomeViewModel", "Setting senderID to: '${user.companyAlias}'")
+                }.onFailure { e ->
+                    // Handle failure to fetch from Firebase (e.g., network issues)
+                    android.util.Log.e("HomeViewModel", "Failed to fetch user from Firebase", e)
                     _state.update { it.copy(
-                        senderID = user.companyAlias,
-                        isLoading = false
+                        error = "Failed to load user info from server: ${e.message}",
+                        isLoading = false,
+                        needsLogin = false,
+                        senderID = null // Clear sender ID on failure
                     )}
                 }
+
             } catch (e: Exception) {
+                // Catch any other unexpected exceptions
+                android.util.Log.e("HomeViewModel", "Unexpected error loading user info", e)
                 _state.update { it.copy(
-                    error = "Failed to load user info: ${e.message}",
-                    isLoading = false
+                    error = "An unexpected error occurred: ${e.message}",
+                    isLoading = false,
+                    needsLogin = false,
+                    senderID = null // Clear sender ID on error
                 )}
             }
         }
@@ -296,6 +288,9 @@ class HomeViewModel @Inject constructor(
                     return@launch
                 }
 
+                // Remove the duplicate senderID declaration below
+                // val senderID = user.companyAlias
+                
                 // Update to SENDING stage
                 _state.update { it.copy(sendingStage = SendingProgressDialog.SendStage.SENDING) }
 

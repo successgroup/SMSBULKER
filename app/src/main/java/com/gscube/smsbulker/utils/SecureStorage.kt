@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import com.gscube.smsbulker.data.UserProfile
+import com.google.firebase.Timestamp
+import java.util.Date
 
 class SecureStorage(context: Context) {
     companion object {
@@ -45,8 +47,8 @@ class SecureStorage(context: Context) {
             putString(KEY_COMPANY_ALIAS, profile.companyAlias)  // Fixed: use profile.companyAlias
             putString(KEY_PHONE, profile.phone)
             putBoolean(KEY_EMAIL_VERIFIED, profile.emailVerified)
-            putLong(KEY_CREATED_AT, profile.createdAt)
-            putLong(KEY_LAST_LOGIN, profile.lastLogin)
+            putString(KEY_CREATED_AT, profile.createdAt.toDate().time.toString())
+            putString(KEY_LAST_LOGIN, profile.lastLogin.toDate().time.toString())
             putBoolean(KEY_AUTH_STATE, true)
             commit()
         }
@@ -65,8 +67,8 @@ class SecureStorage(context: Context) {
             companyAlias = prefs.getString(KEY_COMPANY_ALIAS, "") ?: "",
             emailVerified = prefs.getBoolean(KEY_EMAIL_VERIFIED, false),
             apiKey = prefs.getString(KEY_API_KEY, "") ?: "",
-            createdAt = prefs.getLong(KEY_CREATED_AT, 0),
-            lastLogin = prefs.getLong(KEY_LAST_LOGIN, 0)
+            createdAt = Timestamp(Date(prefs.getString(KEY_CREATED_AT, "0")?.toLong() ?: 0)),
+            lastLogin = Timestamp(Date(prefs.getString(KEY_LAST_LOGIN, "0")?.toLong() ?: 0))
         )
     }
 

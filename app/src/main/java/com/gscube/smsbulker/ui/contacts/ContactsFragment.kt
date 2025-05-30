@@ -34,6 +34,7 @@ import com.gscube.smsbulker.ui.csvEditor.CsvEditorFragmentArgs
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.util.UUID
 
 class ContactsFragment : Fragment() {
 
@@ -160,10 +161,13 @@ class ContactsFragment : Fragment() {
                 navigateToSendMessage(listOf(contact))
             },
             onSelectionChanged = { selectedContacts ->
+                // Update the ViewModel's selection state
+                viewModel.updateSelectedContacts(selectedContacts)
                 updateToolbarForSelection(selectedContacts)
-            }
+            },
+            getSelectedContactsFromViewModel = { viewModel.uiState.value.selectedContacts } // Updated parameter name
         )
-
+    
         binding.contactsRecyclerView.apply {
             adapter = contactsAdapter
             layoutManager = LinearLayoutManager(requireContext())
@@ -175,10 +179,7 @@ class ContactsFragment : Fragment() {
         binding.searchInput.addTextChangedListener { text ->
             val query = text?.toString() ?: ""
             viewModel.updateSearchQuery(query)
-            // Don't clear selection when search is cleared
-            if (query.isNotEmpty()) {
-                viewModel.filterContacts(query)
-            }
+            // Don't need to call filterContacts here as it's already handled in the ViewModel
         }
     }
 
@@ -426,13 +427,13 @@ class ContactsFragment : Fragment() {
                 groupInput.setText(existingContact.group)
             }
         }
-
+    
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(if (contact == null) "Add Contact" else "Edit Contact")
             .setView(dialogBinding.root)
             .setPositiveButton("Save") { _, _ ->
                 val newContact = Contact(
-                    id = contact?.id?.toString() ?: "",
+                    id = contact?.id ?: UUID.randomUUID().toString(),  // Generate a unique ID
                     name = dialogBinding.nameInput.text.toString(),
                     phoneNumber = dialogBinding.phoneInput.text.toString(),
                     group = dialogBinding.groupInput.text.toString(),

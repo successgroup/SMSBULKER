@@ -1,5 +1,7 @@
 package com.gscube.smsbulker.data
 
+import com.google.firebase.Timestamp
+
 data class UserProfile(
     val userId: String,
     val email: String,
@@ -9,8 +11,8 @@ data class UserProfile(
     val companyAlias: String = "", // Company alias used as Sender ID
     val emailVerified: Boolean = false,
     val apiKey: String = "",
-    val createdAt: Long = System.currentTimeMillis(),
-    val lastLogin: Long = System.currentTimeMillis(),
+    val createdAt: Timestamp = Timestamp.now(), // Change to Timestamp
+    val lastLogin: Timestamp = Timestamp.now(), // Change to Timestamp
     val creditBalance: CreditBalance? = null,
     val subscription: Subscription? = null
 )

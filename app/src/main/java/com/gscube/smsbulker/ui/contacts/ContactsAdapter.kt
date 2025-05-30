@@ -16,10 +16,15 @@ class ContactsAdapter(
     private val onEditClick: (Contact) -> Unit,
     private val onDeleteClick: (Contact) -> Unit,
     private val onSendClick: (Contact) -> Unit,
-    private val onSelectionChanged: (Set<Contact>) -> Unit
+    private val onSelectionChanged: (Set<Contact>) -> Unit,
+    private val getSelectedContactsFromViewModel: () -> Set<Contact> // Renamed parameter for clarity
 ) : ListAdapter<Contact, ContactsAdapter.ContactViewHolder>(ContactDiffCallback()) {
 
-    private val selectedContacts = mutableSetOf<Contact>()
+    // Remove the selectedContacts set from here
+    // private val selectedContacts = mutableSetOf<Contact>()
+
+
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ContactViewHolder {
         val binding = ItemContactBinding.inflate(
@@ -34,22 +39,23 @@ class ContactsAdapter(
         holder.bind(getItem(position))
     }
 
-    fun getSelectedContacts(): Set<Contact> = selectedContacts.toSet()
+    fun getSelectedContacts(): Set<Contact> = getSelectedContactsFromViewModel() // Use the renamed parameter
 
     fun selectAll() {
-        selectedContacts.clear()
-        selectedContacts.addAll(currentList)
+        currentList.forEach { contact ->
+            if (!getSelectedContacts().contains(contact)) {
+                onSelectionChanged(getSelectedContacts() + contact)
+            }
+        }
         notifyDataSetChanged()
-        onSelectionChanged(selectedContacts)
     }
 
     fun deselectAll() {
-        selectedContacts.clear()
+        onSelectionChanged(emptySet())
         notifyDataSetChanged()
-        onSelectionChanged(selectedContacts)
     }
 
-    fun areAllSelected(): Boolean = selectedContacts.size == currentList.size
+    fun areAllSelected(): Boolean = getSelectedContacts().size == currentList.size
 
     fun toggleSelection() {
         if (areAllSelected()) {
@@ -60,9 +66,8 @@ class ContactsAdapter(
     }
 
     fun clearSelection() {
-        selectedContacts.clear()
+        onSelectionChanged(emptySet())
         notifyDataSetChanged()
-        onSelectionChanged(selectedContacts)
     }
 
     inner class ContactViewHolder(
@@ -92,15 +97,16 @@ class ContactsAdapter(
                     variablesChipGroup.addView(chip)
                 }
 
-                // Setup checkbox
-                checkBox.isChecked = selectedContacts.contains(contact)
+                // Setup checkbox - use the getSelectedContacts function
+                checkBox.isChecked = getSelectedContacts().contains(contact)
                 checkBox.setOnCheckedChangeListener { _, isChecked ->
+                    val currentSelection = getSelectedContacts().toMutableSet()
                     if (isChecked) {
-                        selectedContacts.add(contact)
+                        currentSelection.add(contact)
                     } else {
-                        selectedContacts.remove(contact)
+                        currentSelection.remove(contact)
                     }
-                    onSelectionChanged(selectedContacts)
+                    onSelectionChanged(currentSelection)
                 }
 
                 // Setup menu button

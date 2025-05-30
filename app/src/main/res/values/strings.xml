@@ -29,12 +29,12 @@
     <string name="api_key">API Key</string>
     <string name="regenerate_api_key">Regenerate API Key</string>
     <string name="credits">Credits</string>
-    <string name="available_credits">%1$.0f credits available</string>
-    <string name="used_credits">%1$.0f credits used</string>
-    <string name="low_balance_alert">Low balance alert at %1$.0f credits</string>
+    <string name="available_credits">%1$d credits available</string>
+    <string name="used_credits">%1$d credits used</string>
+    <string name="low_balance_alert">Low balance alert at %1$d credits</string>
     <string name="auto_refill">Auto-refill when balance is low</string>
     <string name="subscription">Subscription</string>
-    <string name="monthly_credits">%1$.0f credits per month</string>
+    <string name="monthly_credits">%1$d credits per month</string>
     <string name="price_per_month">$%1$.2f/month</string>
     <string name="auto_renew">Auto-renew subscription</string>
     <string name="change_plan">Change Plan</string>

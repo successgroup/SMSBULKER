@@ -109,6 +109,7 @@ configurations {
     }
 }
 
+// Add this in the dependencies section
 dependencies {
     // Core Android dependencies
     implementation("androidx.core:core-ktx:1.12.0")
@@ -181,12 +182,10 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 
+    // Google Play Services
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
+    implementation("com.google.android.gms:play-services-base:18.3.0")
+    
     // Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
-// Delete these lines:
-// defaultConfig {
-//     // Other config...
-//     buildConfigField("String", "API_KEY", "\"YOUR_TEST_API_KEY_HERE\"")
-//     buildConfigField("String", "ARKESEL_API_KEY", "\"YOUR_DEFAULT_ARKESEL_API_KEY\"")
-// }

@@ -101,28 +101,47 @@
                         android:orientation="horizontal"
                         android:gravity="center_vertical">
 
+                        <!-- Original layout with textCompanyAlias -->
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:orientation="vertical">
-
+                        
                             <TextView
                                 android:id="@+id/textCompany"
                                 style="@style/TextAppearance.MaterialComponents.Body1"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 tools:text="Company Name" />
-
-                            <TextView
-                                android:id="@+id/textCompanyAlias"
-                                style="@style/TextAppearance.MaterialComponents.Body2"
+                        
+                            <!-- Replace this with a horizontal layout -->
+                            <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:alpha="0.6"
-                                tools:text="Sender ID: MYCOMPANY" />
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+                                
+                                <TextView
+                                    android:id="@+id/textCompanyAlias"
+                                    style="@style/TextAppearance.MaterialComponents.Body2"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:alpha="0.6"
+                                    tools:text="Sender ID: MYCOMPANY" />
+                                    
+                                <ImageButton
+                                    android:id="@+id/buttonEditSenderId"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    android:contentDescription="Edit Sender ID"
+                                    android:padding="8dp"
+                                    android:src="@drawable/ic_edit" />
+                            </LinearLayout>
                         </LinearLayout>
-
+                        
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/buttonEditProfile"
                             style="@style/Widget.MaterialComponents.Button.TextButton"

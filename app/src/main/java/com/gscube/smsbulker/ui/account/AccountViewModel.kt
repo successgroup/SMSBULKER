@@ -94,4 +94,28 @@ class AccountViewModel @Inject constructor(
             authRepository.signOut()
         }
     }
+    
+    // Add this method to AccountViewModel.kt
+    fun updateSenderId(senderId: String) {
+        viewModelScope.launch {
+            try {
+                // Get current user profile
+                val currentProfile = _userProfile.value?.getOrNull()
+                if (currentProfile != null) {
+                    // Create updated profile with new sender ID
+                    val updatedProfile = currentProfile.copy(companyAlias = senderId)
+                    
+                    // Update profile in Firestore
+                    firebaseRepository.updateUserProfile(updatedProfile).onSuccess {
+                        // Reload profile to get updated data
+                        loadUserProfile()
+                    }.onFailure { error ->
+                        // Handle error
+                    }
+                }
+            } catch (e: Exception) {
+                // Handle exception
+            }
+        }
+    }
 }

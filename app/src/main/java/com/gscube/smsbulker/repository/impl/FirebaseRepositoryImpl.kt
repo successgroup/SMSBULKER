@@ -1,6 +1,7 @@
 package com.gscube.smsbulker.repository.impl
 
 import android.content.Context
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
@@ -18,6 +19,7 @@ import javax.inject.Singleton
 import java.util.*
 import com.gscube.smsbulker.utils.NetworkUtils
 import com.google.firebase.firestore.FieldValue
+
 
 @Singleton
 @ContributesBinding(AppScope::class)
@@ -47,8 +49,8 @@ class FirebaseRepositoryImpl @Inject constructor(
                         company = userDoc.getString("company"),
                         emailVerified = firebaseUser.isEmailVerified,
                         apiKey = userDoc.getString("apiKey") ?: "",
-                        createdAt = (userDoc.getTimestamp("createdAt") ?.seconds ?: 0) * 1000L,
-                        lastLogin = System.currentTimeMillis()
+                        createdAt = userDoc.getTimestamp("createdAt") ?: Timestamp.now(), // Changed from Long to Timestamp
+                        lastLogin = Timestamp.now() // Changed from Long to Timestamp
                     )
                     Result.success(profile)
                 } else {
@@ -81,14 +83,14 @@ class FirebaseRepositoryImpl @Inject constructor(
                     company = company,
                     emailVerified = false,
                     apiKey = proxyApiKey,  // This is the proxy key, not the actual Arkesel key
-                    createdAt = System.currentTimeMillis(),
-                    lastLogin = System.currentTimeMillis()
+                    createdAt = Timestamp.now(), // Changed from Long to Timestamp
+                    lastLogin = Timestamp.now() // Changed from Long to Timestamp
                 )
                 
                 // Save additional user data to Firestore
                 firestore.collection("users")
                     .document(firebaseUser.uid)
-                    .set(profile)
+                    .set(profile) // Firestore will automatically handle Timestamp objects
                     .await()
                 
                 Result.success(profile)
@@ -150,12 +152,14 @@ class FirebaseRepositoryImpl @Inject constructor(
                     // Create credit balance object if document exists
                     val creditBalance = if (creditBalanceDoc?.exists() == true) {
                         CreditBalance(
-                            availableCredits = creditBalanceDoc?.getDouble("availableCredits") ?: 0.0,
-                            usedCredits = creditBalanceDoc?.getDouble("usedCredits") ?: 0.0,
-                            lastUpdated = (creditBalanceDoc?.getTimestamp("lastUpdated")?.seconds ?: 0) * 1000L,
-                            nextRefillDate = (creditBalanceDoc?.getTimestamp("nextRefillDate")?.seconds ?: 0) * 1000L,
-                            autoRefillEnabled = creditBalanceDoc?.getBoolean("autoRefillEnabled") ?: false,
-                            lowBalanceAlert = creditBalanceDoc?.getDouble("lowBalanceAlert") ?: 100.0
+                            // Use getLong and cast to Int
+                            availableCredits = creditBalanceDoc.getLong("availableCredits")?.toInt() ?: 0,
+                            usedCredits = creditBalanceDoc.getLong("usedCredits")?.toInt() ?: 0,
+                            lastUpdated = creditBalanceDoc.getTimestamp("lastUpdated") ?: Timestamp.now(), // Changed from Long to Timestamp
+                            nextRefillDate = creditBalanceDoc.getTimestamp("nextRefillDate") ?: Timestamp.now(), // Changed from Long to Timestamp
+                            autoRefillEnabled = creditBalanceDoc.getBoolean("autoRefillEnabled") ?: false,
+                            // Use getLong and cast to Int
+                            lowBalanceAlert = creditBalanceDoc.getLong("lowBalanceAlert")?.toInt() ?: 100
                         )
                     } else null
                     
@@ -165,11 +169,12 @@ class FirebaseRepositoryImpl @Inject constructor(
                             planId = subscriptionDoc.getString("planId") ?: "free",
                             planName = subscriptionDoc.getString("planName") ?: "Free",
                             status = subscriptionDoc.getString("status") ?: "active",
-                            startDate = (subscriptionDoc.getTimestamp("startDate") ?.seconds ?: 0) * 1000L,
-                            // Original line with error:
-                            endDate = (subscriptionDoc.getTimestamp("endDate")?.seconds ?: 0) * 1000L,
+                            startDate = subscriptionDoc.getTimestamp("startDate") ?: Timestamp.now(), // Changed from Long to Timestamp
+                            endDate = subscriptionDoc.getTimestamp("endDate") ?: Timestamp.now(), // Changed from Long to Timestamp
                             autoRenew = subscriptionDoc.getBoolean("autoRenew") ?: false,
-                            monthlyCredits = subscriptionDoc.getDouble("monthlyCredits") ?: 100.0,
+                            // Use getLong and cast to Int for monthlyCredits
+                            monthlyCredits = subscriptionDoc.getLong("monthlyCredits")?.toInt() ?: 100,
+                            // Use getDouble for price
                             price = subscriptionDoc.getDouble("price") ?: 0.0,
                             features = (subscriptionDoc.get("features") as? List<String>) ?: listOf("Basic SMS")
                         )
@@ -185,8 +190,8 @@ class FirebaseRepositoryImpl @Inject constructor(
                         companyAlias = userDoc.getString("companyAlias") ?: "",
                         emailVerified = currentUser.isEmailVerified,
                         apiKey = userDoc.getString("apiKey") ?: "",
-                        createdAt = (userDoc.getTimestamp("createdAt") ?.seconds ?: 0) * 1000L,
-                        lastLogin = (userDoc.getTimestamp("lastLogin") ?.seconds ?: 0) * 1000L,
+                        createdAt = userDoc.getTimestamp("createdAt") ?: Timestamp.now(), // Changed from Long to Timestamp
+                        lastLogin = userDoc.getTimestamp("lastLogin") ?: Timestamp.now(), // Changed from Long to Timestamp
                         creditBalance = creditBalance,
                         subscription = subscription
                     )
@@ -347,24 +352,24 @@ class FirebaseRepositoryImpl @Inject constructor(
             if (creditBalanceDoc.exists()) {
                 android.util.Log.d("FirebaseRepo", "Credit balance document exists")
                 val creditBalance = CreditBalance(
-                    availableCredits = creditBalanceDoc.getDouble("availableCredits") ?: 0.0,
-                    usedCredits = creditBalanceDoc.getDouble("usedCredits") ?: 0.0,
-                    lastUpdated = (creditBalanceDoc.getTimestamp("lastUpdated")?.seconds ?: 0) * 1000L,
-                    nextRefillDate = creditBalanceDoc.getTimestamp("nextRefillDate")?.seconds?.let { it * 1000L },
+                    availableCredits = creditBalanceDoc.getLong("availableCredits")?.toInt() ?: 0,
+                    usedCredits = creditBalanceDoc.getLong("usedCredits")?.toInt() ?: 0,
+                    lastUpdated = creditBalanceDoc.getTimestamp("lastUpdated") ?: Timestamp.now(),
+                    nextRefillDate = creditBalanceDoc.getTimestamp("nextRefillDate"),
                     autoRefillEnabled = creditBalanceDoc.getBoolean("autoRefillEnabled") ?: false,
-                    lowBalanceAlert = creditBalanceDoc.getDouble("lowBalanceAlert") ?: 100.0
+                    lowBalanceAlert = creditBalanceDoc.getLong("lowBalanceAlert")?.toInt() ?: 100
                 )
                 Result.success(creditBalance)
             } else {
                 android.util.Log.d("FirebaseRepo", "Credit balance document does not exist")
                 // Return default credit balance if document doesn't exist
                 Result.success(CreditBalance(
-                    availableCredits = 0.0,
-                    usedCredits = 0.0,
-                    lastUpdated = System.currentTimeMillis(),
+                    availableCredits = 0,
+                    usedCredits = 0,
+                    lastUpdated = Timestamp.now(),
                     nextRefillDate = null,
                     autoRefillEnabled = false,
-                    lowBalanceAlert = 100.0
+                    lowBalanceAlert = 100
                 ))
             }
         } catch (e: Exception) {
@@ -402,10 +407,10 @@ class FirebaseRepositoryImpl @Inject constructor(
                     planId = subscriptionDoc.getString("planId") ?: "",
                     planName = subscriptionDoc.getString("planName") ?: "",
                     status = subscriptionDoc.getString("status") ?: "expired",
-                    startDate = (subscriptionDoc.getTimestamp("startDate")?.seconds ?: 0) * 1000L,
-                    endDate = (subscriptionDoc.getTimestamp("endDate")?.seconds ?: 0) * 1000L,
+                    startDate = subscriptionDoc.getTimestamp("startDate") ?: Timestamp.now(),
+                    endDate = subscriptionDoc.getTimestamp("endDate") ?: Timestamp.now(),
                     autoRenew = subscriptionDoc.getBoolean("autoRenew") ?: false,
-                    monthlyCredits = subscriptionDoc.getDouble("monthlyCredits") ?: 0.0,
+                    monthlyCredits = subscriptionDoc.getLong("monthlyCredits")?.toInt() ?: 100,
                     price = subscriptionDoc.getDouble("price") ?: 0.0,
                     features = subscriptionDoc.get("features") as? List<String> ?: emptyList()
                 )
@@ -417,10 +422,10 @@ class FirebaseRepositoryImpl @Inject constructor(
                     planId = "free",
                     planName = "Free",
                     status = "active",
-                    startDate = System.currentTimeMillis(),
-                    endDate = System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000,
+                    startDate =Timestamp.now(),
+                    endDate = Timestamp.now(), //+ 30L * 24 * 60 * 60 * 1000,
                     autoRenew = false,
-                    monthlyCredits = 100.0,
+                    monthlyCredits = 100,
                     price = 0.0,
                     features = listOf("Basic SMS", "Contact Management")
                 ))
