@@ -22,13 +22,12 @@ class SmsBulkerApplication : Application() {
     lateinit var appComponent: AppComponent
         private set
 
-    // Add this to your SmsBulkerApplication.kt file
-
-
-    
     // Inside the onCreate method
     override fun onCreate() {
         super.onCreate()
+        
+        // Install security provider first - add this line
+        SecurityProviderInstaller.installIfNeeded(this)
         
         // Set instance first
         instance = this
@@ -49,9 +48,6 @@ class SmsBulkerApplication : Application() {
                     Log.e(TAG, "Failed to subscribe to delivery reports topic", task.exception)
                 }
             }
-        
-        // Remove the test credentials initialization
-        // Let the login flow handle authentication properly
     }
 
     companion object {

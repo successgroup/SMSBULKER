@@ -37,8 +37,21 @@ class SmsRepositoryImpl @Inject constructor(
             "name" to recipient
         )
 
+        // For single SMS - Changed from ArkeselSmsRequest to ArkeselRegularSmsRequest
+        val regularSmsRequest = ArkeselRegularSmsRequest(
+            sender = sender ?: "SMSBULKER",
+            message = if (message.contains("{")) {
+                convertToArkeselTemplate(message)
+            } else {
+                message
+            },
+            recipients = listOf(recipient), // Changed from Map to List
+            sandbox = sandboxMode,
+            callbackUrl = "https://your-firebase-function-url.com/webhook/delivery-report"
+        )
+
         // Inside the SmsRepositoryImpl class, update the request creation:
-        
+
         // For single SMS
         val request = ArkeselSmsRequest(
             sender = sender ?: "SMSBULKER",
@@ -53,10 +66,10 @@ class SmsRepositoryImpl @Inject constructor(
             sandbox = sandboxMode,
             callbackUrl = "https://your-firebase-function-url.com/webhook/delivery-report" // Add this line
         )
-        
+
         // Similarly update the bulk SMS and personalized SMS methods
         Log.d("SmsRepository", "Sending SMS request: $request")
-        val response = arkeselApi.sendSms(request)
+        val response = arkeselApi.sendSms(regularSmsRequest)
         Log.d("SmsRepository", "SMS response code: ${response.code()}")
         Log.d("SmsRepository", "SMS response body: ${response.body()}")
         Log.d("SmsRepository", "SMS error body: ${response.errorBody()?.string()}")
@@ -94,21 +107,16 @@ class SmsRepositoryImpl @Inject constructor(
         message: String,
         sender: String?
     ): Flow<List<BulkSmsResult>> = flow {
-        val recipientsMap = recipients.associateWith { recipient ->
-            mapOf(
-                "number" to recipient,
-                "name" to recipient
-            )
-        }
+        // No need for recipientsMap for ArkeselRegularSmsRequest
 
-        val request = ArkeselSmsRequest(
+        val request = ArkeselRegularSmsRequest(
             sender = sender ?: "GSCube",
             message = if (message.contains("{")) {
                 convertToArkeselTemplate(message)
             } else {
                 message
             },
-            recipients = recipientsMap,
+            recipients = recipients, // Use the list directly
             sandbox = sandboxMode
         )
 
@@ -122,10 +130,10 @@ class SmsRepositoryImpl @Inject constructor(
             val responseBody = response.body()!!
             if (responseBody.status == "success") {
                 // Create a map of recipient to message ID for quick lookup
-                val recipientToMessageId = responseBody.data.associate { 
-                    it.recipient to it.id 
+                val recipientToMessageId = responseBody.data.associate {
+                    it.recipient to it.id
                 }
-                
+
                 emit(recipients.map { recipient ->
                     BulkSmsResult(
                         messageId = recipientToMessageId[recipient] ?: "",
@@ -185,10 +193,10 @@ class SmsRepositoryImpl @Inject constructor(
             val responseBody = response.body()!!
             if (responseBody.status == "success") {
                 // Create a map of recipient to message ID for quick lookup
-                val recipientToMessageId = responseBody.data.associate { 
-                    it.recipient to it.id 
+                val recipientToMessageId = responseBody.data.associate {
+                    it.recipient to it.id
                 }
-                
+
                 emit(recipients.map { (phoneNumber, _) ->
                     BulkSmsResult(
                         messageId = recipientToMessageId[phoneNumber] ?: "",

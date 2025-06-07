@@ -76,6 +76,12 @@ class SendMessageViewModel @Inject constructor(
         _uiState.update { it.copy(scheduleTime = timestamp) }
     }
 
+    private fun containsPlaceholders(message: String): Boolean {
+        // Check for both {name} and <%name%> formats
+        return Regex("\\{(\\w+)\\}").find(message) != null || 
+               Regex("<%([\\w]+)%>").find(message) != null
+    }
+
     fun sendMessage() {
         val currentState = _uiState.value
         if (currentState.selectedContacts.isEmpty()) {
@@ -97,9 +103,12 @@ class SendMessageViewModel @Inject constructor(
             try {
                 setLoading(true)
                 clearMessages()
-
-                // Placeholder validation for template messages
-                if (currentState.selectedTemplate != null) {
+    
+                // Check if the message contains placeholders, regardless of template selection
+                val hasPlaceholders = containsPlaceholders(currentState.message)
+                
+                if (hasPlaceholders) {
+                    // Handle as a personalized message with placeholders
                     // Convert contacts to recipients
                     val recipients = currentState.selectedContacts.map { contact ->
                         Recipient(
@@ -108,10 +117,15 @@ class SendMessageViewModel @Inject constructor(
                             variables = contact.variables
                         )
                     }
-
+    
+                    // For Arkesel format placeholders, we need to extract the variable names
+                    val message = currentState.message
+                    val placeholders = extractPlaceholders(message)
+                    
                     val validationResult = validatePlaceholders(
-                        currentState.message, 
-                        recipients
+                        message, 
+                        recipients,
+                        placeholders
                     )
                     
                     if (validationResult.invalidRecipients.isNotEmpty()) {
@@ -121,12 +135,12 @@ class SendMessageViewModel @Inject constructor(
                         setError("Placeholder validation failed:\n${errorMessages.joinToString("\n")}")
                         return@launch
                     }
-
+    
                     // Use only valid recipients for sending
                     val personalizedRecipients = validationResult.validRecipients.map { recipient ->
                         recipient.phoneNumber to (recipient.variables ?: emptyMap())
                     }
-
+    
                     val messageFlow = smsRepository.sendPersonalizedSms(
                         recipients = personalizedRecipients,
                         messageTemplate = currentState.message,
@@ -145,7 +159,7 @@ class SendMessageViewModel @Inject constructor(
                         }
                     }
                 } else {
-                    // Send bulk message
+                    // Send bulk message for plain text without placeholders
                     val messageFlow = smsRepository.sendBulkSms(
                         recipients = currentState.selectedContacts.map { it.phoneNumber },
                         message = currentState.message,
@@ -188,11 +202,27 @@ class SendMessageViewModel @Inject constructor(
         _uiState.update { it.copy(error = null, success = null) }
     }
 
-    private fun validatePlaceholders(template: String, recipients: List<Recipient>): PlaceholderValidationResult {
-        val placeholderRegex = Regex("\\{(\\w+)\\}")
-        val placeholders = placeholderRegex.findAll(template)
+    private fun extractPlaceholders(message: String): Set<String> {
+        val curlyBracePlaceholders = Regex("\\{(\\w+)\\}").findAll(message)
             .map { it.groupValues[1] }
-            .toSet()
+        
+        val arkeselPlaceholders = Regex("<%([\\w]+)%>").findAll(message)
+            .map { it.groupValues[1] }
+        
+        return (curlyBracePlaceholders + arkeselPlaceholders).toSet()
+    }
+
+    private fun validatePlaceholders(template: String, recipients: List<Recipient>, placeholders: Set<String>? = null): PlaceholderValidationResult {
+        // Use provided placeholders or extract them from the template
+        val allPlaceholders = placeholders ?: run {
+            val curlyBracePlaceholders = Regex("\\{(\\w+)\\}").findAll(template)
+                .map { it.groupValues[1] }
+            
+            val arkeselPlaceholders = Regex("<%([\\w]+)%>").findAll(template)
+                .map { it.groupValues[1] }
+            
+            (curlyBracePlaceholders + arkeselPlaceholders).toSet()
+        }
 
         val validRecipients = mutableListOf<Recipient>()
         val invalidRecipients = mutableListOf<InvalidRecipient>()
@@ -200,7 +230,7 @@ class SendMessageViewModel @Inject constructor(
         recipients.forEach { recipient ->
             val recipientVariables = recipient.variables ?: emptyMap()
             
-            val missingPlaceholders = placeholders.filter { placeholder ->
+            val missingPlaceholders = allPlaceholders.filter { placeholder ->
                 !recipientVariables.containsKey(placeholder)
             }.toSet()
 

@@ -223,43 +223,25 @@ class FirebaseRepositoryImpl @Inject constructor(
     // Change this method in FirebaseRepositoryImpl
     override suspend fun updateUserProfile(profile: UserProfile): Result<Unit> {
         return try {
-            val currentUser = auth.currentUser ?: return Result.failure(Exception("User not logged in"))
-            
-            // Update main user document
-            val userUpdates = hashMapOf<String, Any>(
-                "name" to profile.name,
-                "phone" to profile.phone,
-                "company" to (profile.company ?: ""),
-                "companyAlias" to profile.companyAlias,
-                "lastLogin" to System.currentTimeMillis()
-            )
-            
-            firestore.collection("users")
-                .document(currentUser.uid)
-                .update(userUpdates)
-                .await()
-            
-            // Update credit balance if provided
-            profile.creditBalance?.let { creditBalance ->
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                Result.failure(Exception("User not authenticated"))
+            } else {
+                val updates = mapOf(
+                    "name" to profile.name,
+                    "phone" to profile.phone,
+                    "company" to profile.company,
+                    "companyAlias" to profile.companyAlias,
+                    "lastLogin" to Timestamp.now() // Changed from System.currentTimeMillis() to Timestamp.now()
+                )
+                
                 firestore.collection("users")
                     .document(currentUser.uid)
-                    .collection("creditBalance")
-                    .document("current")
-                    .set(creditBalance)
+                    .update(updates)
                     .await()
+                
+                Result.success(Unit)
             }
-            
-            // Update subscription if provided
-            profile.subscription?.let { subscription ->
-                firestore.collection("users")
-                    .document(currentUser.uid)
-                    .collection("subscription")
-                    .document("current")
-                    .set(subscription)
-                    .await()
-            }
-            
-            Result.success(Unit)  // Return Unit instead of profile
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -464,6 +446,28 @@ class FirebaseRepositoryImpl @Inject constructor(
             }.await()
             
             Result.success(result)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    override suspend fun getCurrentUserCredits(): Result<Double> {
+        return try {
+            val currentUser = auth.currentUser ?: return Result.failure(Exception("User not authenticated"))
+            
+            // Use the same credit source as getCreditBalance()
+            val creditBalanceDoc = firestore.collection("users")
+                .document(currentUser.uid)
+                .collection("creditBalance")
+                .document("current")
+                .get()
+                .await()
+                
+            if (creditBalanceDoc.exists()) {
+                val credits = creditBalanceDoc.getLong("availableCredits")?.toDouble() ?: 0.0
+                Result.success(credits)
+            } else {
+                Result.success(0.0)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

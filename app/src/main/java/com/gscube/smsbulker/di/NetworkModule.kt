@@ -14,12 +14,15 @@ import dagger.Provides
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import okhttp3.ConnectionSpec
+import okhttp3.TlsVersion
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
 import com.gscube.smsbulker.BuildConfig
+import android.util.Log
 
 @ContributesTo(AppScope::class)
 @Module
@@ -49,6 +52,8 @@ object NetworkModule {
             // Use the user's API key if available, otherwise fall back to the default
             val actualApiKey = if (apiKey.isNotBlank()) apiKey else BuildConfig.ARKESEL_API_KEY
             
+            Log.d("NetworkModule", "Using API key: ${actualApiKey.take(4)}...${actualApiKey.takeLast(4)}")
+            
             val request = chain.request().newBuilder()
                 .addHeader("Accept", "application/json")
                 .addHeader("Content-Type", "application/json")
@@ -74,6 +79,7 @@ object NetworkModule {
             .build()
     }
 
+    // In the provideOkHttpClient method
     @Provides
     @Singleton
     fun provideOkHttpClient(
@@ -86,6 +92,12 @@ object NetworkModule {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            // Add this connection spec to enable TLS 1.2
+            .connectionSpecs(listOf(
+                ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
+                    .tlsVersions(TlsVersion.TLS_1_2)
+                    .build()
+            ))
             .build()
     }
 

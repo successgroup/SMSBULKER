@@ -117,19 +117,12 @@ class ContactsViewModel @Inject constructor(
         _uiState.update { it.copy(contacts = filteredContacts) }
     }
 
-    // Update the toggleContactSelection method to use contact.id for tracking
     fun toggleContactSelection(contact: Contact) {
         if (selectedContacts.contains(contact)) {
             selectedContacts.remove(contact)
         } else {
             selectedContacts.add(contact)
         }
-        _uiState.update { it.copy(selectedContacts = selectedContacts.toSet()) }
-    }
-
-    fun updateSelectedContacts(contacts: Set<Contact>) {
-        selectedContacts.clear()
-        selectedContacts.addAll(contacts)
         _uiState.update { it.copy(selectedContacts = selectedContacts.toSet()) }
     }
 

@@ -9,6 +9,7 @@ import com.gscube.smsbulker.data.model.*
 import com.gscube.smsbulker.repository.*
 import com.gscube.smsbulker.di.AppScope
 import com.gscube.smsbulker.ui.auth.LoginActivity
+import com.gscube.smsbulker.utils.PhoneNumberValidator
 import com.squareup.anvil.annotations.ContributesBinding
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -17,6 +18,8 @@ import java.net.SocketTimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
 import retrofit2.HttpException
+import android.util.Log
+import com.gscube.smsbulker.utils.SecureStorage
 
 data class HomeViewState(
     val isLoading: Boolean = false,
@@ -31,6 +34,10 @@ data class HomeViewState(
     val availableCredits: Int = 0  // Change from Int to Double
 )
 
+// Add this import at the top of the file
+
+
+// Modify the constructor to include SecureStorage
 @Singleton
 @ContributesBinding(AppScope::class)
 class HomeViewModel @Inject constructor(
@@ -40,7 +47,8 @@ class HomeViewModel @Inject constructor(
     private val contactsRepository: ContactsRepository,
     private val userRepository: UserRepository,
     private val firebaseRepository: FirebaseRepository,
-    private val accountRepository: AccountRepository  // Keep this one
+    private val accountRepository: AccountRepository,
+    private val secureStorage: SecureStorage  // Add this parameter
 ) : AndroidViewModel(application) {
 
     private val _state = MutableStateFlow(HomeViewState())
@@ -204,23 +212,38 @@ class HomeViewModel @Inject constructor(
     }
 
     fun addRecipients(contacts: List<Contact>) {
-        val newRecipients = contacts.map { contact ->
+        // Filter out invalid phone numbers
+        val validContacts = contacts.filter { PhoneNumberValidator.isValidGhanaNumber(it.phoneNumber) }
+        val invalidCount = contacts.size - validContacts.size
+        
+        val newRecipients = validContacts.map { contact ->
+            // Format the phone number
+            val formattedNumber = PhoneNumberValidator.formatGhanaNumber(contact.phoneNumber) ?: contact.phoneNumber
             Recipient(
                 name = contact.name,
-                phoneNumber = contact.phoneNumber,
+                phoneNumber = formattedNumber,
                 variables = contact.variables
             )
         }
+        
         _state.update { currentState ->
             val existingPhoneNumbers = currentState.recipients.map { it.phoneNumber }.toSet()
             val uniqueNewRecipients = newRecipients.filter { !existingPhoneNumbers.contains(it.phoneNumber) }
             
-            if (uniqueNewRecipients.size < newRecipients.size) {
-                // Some duplicates were found
-                val duplicateCount = newRecipients.size - uniqueNewRecipients.size
-                _state.value = currentState.copy(
-                    error = "Skipped $duplicateCount duplicate contact(s)"
-                )
+            val message = buildString {
+                if (uniqueNewRecipients.size < newRecipients.size) {
+                    // Some duplicates were found
+                    val duplicateCount = newRecipients.size - uniqueNewRecipients.size
+                    append("Skipped $duplicateCount duplicate contact(s). ")
+                }
+                
+                if (invalidCount > 0) {
+                    append("Skipped $invalidCount invalid phone number(s).")
+                }
+            }
+            
+            if (message.isNotEmpty()) {
+                _state.value = currentState.copy(error = message)
             }
             
             currentState.copy(
@@ -247,18 +270,38 @@ class HomeViewModel @Inject constructor(
         )}
     }
 
+    // Add this function to help with debugging
+    // Fix the logDebugInfo function
+    private fun logDebugInfo() {
+        viewModelScope.launch {
+            try {
+                val apiKey = secureStorage.getApiKey()
+                Log.d("HomeViewModel", "API Key available: ${!apiKey.isNullOrEmpty()}")
+                
+                val user = userRepository.getCurrentUser()
+                Log.d("HomeViewModel", "User info - Name: ${user.name}, Company: ${user.company}, Alias: ${user.companyAlias}")
+                
+                val credits = firebaseRepository.getCurrentUserCredits()
+                Log.d("HomeViewModel", "Credits: ${credits.getOrNull() ?: "Unknown"}")
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error logging debug info: ${e.message}")
+            }
+        }
+    }
+
+    // Call this at the beginning of sendBulkSms
     fun sendBulkSms() {
         val currentState = state.value
         // Fix: Check both template content and manual message
         val message = currentState.selectedTemplate?.content ?: currentState.message
-        
+
         if (message.isNullOrBlank()) {
             _state.update { it.copy(error = "Please enter a message or select a template") }
             return
         }
-        
+
         val recipients = currentState.recipients
-        
+
         if (recipients.isEmpty()) {
             _state.update { it.copy(error = "No recipients selected") }
             return
@@ -272,7 +315,7 @@ class HomeViewModel @Inject constructor(
                     error = null,
                     sendingStage = SendingProgressDialog.SendStage.PREPARING
                 )}
-                
+
                 val senderID = currentState.senderID ?: try {
                     val user = userRepository.getCurrentUser()
                     if (user.companyAlias.isBlank()) {
@@ -290,7 +333,7 @@ class HomeViewModel @Inject constructor(
 
                 // Remove the duplicate senderID declaration below
                 // val senderID = user.companyAlias
-                
+
                 // Update to SENDING stage
                 _state.update { it.copy(sendingStage = SendingProgressDialog.SendStage.SENDING) }
 
@@ -300,13 +343,13 @@ class HomeViewModel @Inject constructor(
                     senderId = senderID,
                     messageTemplate = currentState.selectedTemplate
                 )
-                
+
                 // Make the API call
                 val response = bulkSmsRepository.sendBulkSms(request)
-                
+
                 // Update to PROCESSING stage
                 _state.update { it.copy(sendingStage = SendingProgressDialog.SendStage.PROCESSING) }
-                
+
                 response.onSuccess { bulkSmsResponse ->
                     // Update to COMPLETED stage with success message
                     _state.update { it.copy(
@@ -323,15 +366,15 @@ class HomeViewModel @Inject constructor(
                             403 -> "Access denied. Please verify your account status."
                             429 -> "Too many requests. Please try again later."
                             in 500..599 -> "Server error. Please try again later."
-                            else -> "Failed to send messages. Please try again."
+                            else -> "Failed to send messages. Please try again 1."
                         }
                         else -> when {
                             error.message?.contains("ECONNREFUSED") == true -> "Could not connect to the server. Please try again later."
                             error.message?.contains("timeout") == true -> "Request timed out. Please check your internet connection."
-                            else -> "Failed to send messages. Please try again."
+                            else -> "Failed to send messages. Please try again 2."
                         }
                     }
-                    
+
                     _state.update { it.copy(
                         error = errorMessage,
                         isLoading = false,
@@ -342,9 +385,9 @@ class HomeViewModel @Inject constructor(
                 val errorMessage = when (e) {
                     is UnknownHostException -> "No internet connection. Please check your network and try again."
                     is SocketTimeoutException -> "Connection timed out. Please check your internet connection and try again."
-                    else -> "Failed to send messages. Please try again."
+                    else -> "Failed to send messages. Please try again 3."
                 }
-                
+
                 _state.update { it.copy(
                     error = errorMessage,
                     isLoading = false,
@@ -362,3 +405,4 @@ class HomeViewModel @Inject constructor(
         _state.update { it.copy(success = null) }
     }
 }
+

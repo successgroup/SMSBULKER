@@ -14,6 +14,16 @@ data class ArkeselSmsRequest(
 )
 
 @JsonClass(generateAdapter = true)
+data class ArkeselRegularSmsRequest(
+    @Json(name = "sender") val sender: String,
+    @Json(name = "message") val message: String,
+    @Json(name = "recipients") val recipients: List<String>,
+    @Json(name = "sandbox") val sandbox: Boolean = false,
+    @Json(name = "schedule_time") val scheduleTime: String? = null,
+    @Json(name = "callback_url") val callbackUrl: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class ArkeselSmsResponse(
     @Json(name = "status") val status: String,
     @Json(name = "data") val data: List<ArkeselMessageResult>
@@ -41,3 +51,4 @@ data class ArkeselAnalyticsRequest(
     @Json(name = "end_date") val endDate: String,
     @Json(name = "message_ids") val messageIds: List<String>? = null
 )
+

@@ -7,12 +7,15 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.gscube.smsbulker.SmsBulkerApplication
 import com.gscube.smsbulker.R
 import com.gscube.smsbulker.databinding.FragmentAccountBinding
+import com.gscube.smsbulker.di.ViewModelFactory
+import com.gscube.smsbulker.ui.auth.AuthViewModel
 import com.gscube.smsbulker.utils.showErrorSnackbar
 import com.gscube.smsbulker.utils.showSuccessSnackbar
 import com.gscube.smsbulker.ui.auth.LoginActivity
@@ -26,11 +29,18 @@ class AccountFragment : Fragment() {
     private val binding get() = _binding!!
 
     @Inject
-    lateinit var viewModel: AccountViewModel
+    lateinit var viewModelFactory: ViewModelFactory
+    
+    private lateinit var authViewModel: AuthViewModel
+    private lateinit var accountViewModel: AccountViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         (requireActivity().application as SmsBulkerApplication).appComponent.inject(this)
         super.onCreate(savedInstanceState)
+        
+        // Initialize ViewModels using ViewModelProvider
+        authViewModel = ViewModelProvider(this, viewModelFactory)[AuthViewModel::class.java]
+        accountViewModel = ViewModelProvider(this, viewModelFactory)[AccountViewModel::class.java]
     }
 
     override fun onCreateView(
@@ -49,16 +59,16 @@ class AccountFragment : Fragment() {
         setupClickListeners()
 
         // Load initial data
-        viewModel.loadUserProfile()
-        viewModel.loadCreditBalance()
-        viewModel.loadSubscription()
+        accountViewModel.loadUserProfile()
+        accountViewModel.loadCreditBalance()
+        accountViewModel.loadSubscription()
     }
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.userProfile.collect { result ->
+                    accountViewModel.userProfile.collect { result ->
                         result?.let { profileResult ->
                             profileResult.onSuccess { profile ->
                                 binding.apply {
@@ -75,7 +85,7 @@ class AccountFragment : Fragment() {
                 }
 
                 launch {
-                    viewModel.creditBalance.collect { result ->
+                    accountViewModel.creditBalance.collect { result ->
                         result?.let { balanceResult ->
                             balanceResult.onSuccess { balance ->
                                 binding.apply {
@@ -99,7 +109,7 @@ class AccountFragment : Fragment() {
                 }
 
                 launch {
-                    viewModel.subscription.collect { result ->
+                    accountViewModel.subscription.collect { result ->
                         result?.let { subscriptionResult ->
                             subscriptionResult.onSuccess { subscription ->
                                 binding.apply {
@@ -135,7 +145,7 @@ class AccountFragment : Fragment() {
             }
         }
     }
-
+    
     private fun setupClickListeners() {
         binding.apply {
             // Add this to setupClickListeners() in AccountFragment.kt
@@ -164,7 +174,8 @@ class AccountFragment : Fragment() {
             }
 
             buttonSignOut.setOnClickListener {
-                viewModel.signOut()
+                // Use proper logout that clears Firebase auth and local storage
+                authViewModel.logout()
                 val intent = Intent(requireContext(), LoginActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 }
@@ -182,7 +193,7 @@ class AccountFragment : Fragment() {
 
     // Add this new method to AccountFragment.kt
     private fun showEditSenderIdDialog() {
-        val currentProfile = viewModel.userProfile.value?.getOrNull()
+        val currentProfile = accountViewModel.userProfile.value?.getOrNull()
         val currentSenderId = currentProfile?.companyAlias ?: ""
 
         val dialogView =
@@ -196,7 +207,7 @@ class AccountFragment : Fragment() {
             .setPositiveButton("Save") { dialog, which ->
                 val newSenderId = editText.text.toString().trim()
                 if (newSenderId.isNotEmpty()) {
-                    viewModel.updateSenderId(newSenderId)
+                    accountViewModel.updateSenderId(newSenderId)
                     showSuccessSnackbar("Sender ID updated successfully")
                 } else {
                     showErrorSnackbar("Sender ID cannot be empty")

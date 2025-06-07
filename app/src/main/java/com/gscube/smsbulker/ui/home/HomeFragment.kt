@@ -178,9 +178,11 @@ class HomeFragment : Fragment() {
                         text != viewModel.state.value.selectedTemplate?.content) {
                         viewModel.clearSelectedTemplate()
                     }
-                    // Calculate message pages (160 characters per page)
+                    // In setupMessageInput() method (around line 181)
+                  
+                    // Calculate message pages (152 characters per page)
                     val charCount = text.length
-                    val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 160) + 1
+                    val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
                     // Update character and page count
                     binding.characterCountText.text = "$charCount($pageCount)"
                 } ?: run {
@@ -318,8 +320,10 @@ class HomeFragment : Fragment() {
     
         // Calculate message pages
         val messageText = binding.messageInput.text.toString()
+        
+        // To:
         val charCount = messageText.length
-        val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 160) + 1
+        val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
         val totalCredits = pageCount * state.recipients.size
     
         // Check if user has enough credits

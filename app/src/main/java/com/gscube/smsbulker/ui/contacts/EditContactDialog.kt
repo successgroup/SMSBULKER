@@ -12,6 +12,7 @@ import com.gscube.smsbulker.R
 import com.gscube.smsbulker.data.model.Contact
 import com.gscube.smsbulker.databinding.DialogEditContactBinding
 import com.gscube.smsbulker.databinding.ItemVariableBinding
+import com.gscube.smsbulker.utils.PhoneNumberValidator
 
 class EditContactDialog : DialogFragment() {
     private var _binding: DialogEditContactBinding? = null
@@ -66,7 +67,23 @@ class EditContactDialog : DialogFragment() {
 
     private fun setupValidation() {
         binding.phoneInput.doAfterTextChanged { text ->
-            binding.phoneInputLayout.error = if (text.isNullOrBlank()) "Phone number is required" else null
+            when {
+                text.isNullOrBlank() -> {
+                    binding.phoneInputLayout.error = "Phone number is required"
+                }
+                !PhoneNumberValidator.isValidGhanaNumber(text.toString()) -> {
+                    binding.phoneInputLayout.error = "Invalid Ghana phone number format"
+                }
+                else -> {
+                    binding.phoneInputLayout.error = null
+                    // Optionally format the number as user types
+                    val formattedNumber = PhoneNumberValidator.formatGhanaNumber(text.toString())
+                    if (formattedNumber != null && formattedNumber != text.toString()) {
+                        binding.phoneInput.setText(formattedNumber)
+                        binding.phoneInput.setSelection(formattedNumber.length)
+                    }
+                }
+            }
         }
 
         binding.nameInput.doAfterTextChanged { text ->
@@ -96,10 +113,18 @@ class EditContactDialog : DialogFragment() {
             return
         }
         
+        if (!PhoneNumberValidator.isValidGhanaNumber(phoneNumber)) {
+            binding.phoneInputLayout.error = "Invalid Ghana phone number format"
+            return
+        }
+        
         if (name.isBlank()) {
             binding.nameInputLayout.error = "Name is required"
             return
         }
+
+        // Format the phone number before saving
+        val formattedPhoneNumber = PhoneNumberValidator.formatGhanaNumber(phoneNumber) ?: phoneNumber
 
         // Collect variables
         val variables = mutableMapOf<String, String>()
@@ -117,7 +142,7 @@ class EditContactDialog : DialogFragment() {
 
         val updatedContact = Contact(
             id = contact?.id,
-            phoneNumber = phoneNumber,
+            phoneNumber = formattedPhoneNumber,
             name = name,
             group = binding.groupInput.text.toString(),
             variables = variables,
@@ -145,4 +170,4 @@ class EditContactDialog : DialogFragment() {
         super.onDestroyView()
         _binding = null
     }
-} 
+}

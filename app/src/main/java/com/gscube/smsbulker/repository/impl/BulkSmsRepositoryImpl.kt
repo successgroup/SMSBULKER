@@ -31,7 +31,7 @@ class BulkSmsRepositoryImpl @Inject constructor(
     @Named("sandbox_mode") private val sandboxMode: Boolean,
     private val secureStorage: SecureStorage,
     private val firebaseRepository: FirebaseRepository,
-    private val userRepository: UserRepository // Added UserRepository parameter
+    private val userRepository: UserRepository
 ) : BulkSmsRepository {
 
     private fun convertToArkeselTemplate(template: String): String {
@@ -44,14 +44,29 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun sendBulkSms(request: BulkSmsRequest): Result<BulkSmsResponse> {
         return try {
-            // First, try to deduct credits
             val messageCount = request.recipients.size
-            val deductResult = firebaseRepository.deductCredits(messageCount)
-            if (deductResult.isFailure) {
-                return Result.failure(deductResult.exceptionOrNull() ?: Exception("Failed to deduct credits"))
+            
+            // Log API key (masked for security)
+            val apiKey = secureStorage.getApiKey()
+            Log.d("BulkSmsRepository", "API Key available: ${!apiKey.isNullOrEmpty()}")
+            if (apiKey.isNullOrEmpty()) {
+                Log.e("BulkSmsRepository", "API Key is null or empty")
+                return Result.failure(Exception("API Key not found. Please check your account settings."))
+            }
+            
+            // First, check if user has enough credits without deducting
+            // Around line 58, add more detailed logging
+            val currentCredits = firebaseRepository.getCurrentUserCredits()
+            Log.d("BulkSmsRepository", "Current credits: ${currentCredits.getOrNull() ?: "Unknown"}")
+            Log.d("BulkSmsRepository", "Required credits: $messageCount")
+            Log.d("BulkSmsRepository", "Credits check result: ${currentCredits.isSuccess}")
+            
+            if (currentCredits.isFailure || (currentCredits.getOrNull() ?: 0.0) < messageCount) {
+                Log.e("BulkSmsRepository", "Credit check failed - Available: ${currentCredits.getOrNull()}, Required: $messageCount")
+                return Result.failure(Exception("Insufficient credits"))
             }
 
-            // If credit deduction successful, proceed with sending
+            // Proceed with message preparation and API call
             val messageText = request.messageTemplate?.let { template ->
                 request.message?.let { convertToArkeselTemplate(it) } ?: convertToArkeselTemplate(template.content)
             } ?: request.message?.let { convertToArkeselTemplate(it) } ?: return Result.failure(Exception("No message content provided"))
@@ -97,13 +112,7 @@ class BulkSmsRepositoryImpl @Inject constructor(
             )
 
             Log.d("BulkSmsRepository", "Sending request: $smsRequest")
-            
-            // Send using appropriate endpoint
-            val response = if (request.messageTemplate?.variables?.isNotEmpty() == true) {
-                arkeselApi.sendTemplateSms(smsRequest)
-            } else {
-                arkeselApi.sendSms(smsRequest)
-            }
+            val response = arkeselApi.sendTemplateSms(smsRequest)
 
             Log.d("BulkSmsRepository", "Response code: ${response.code()}")
             Log.d("BulkSmsRepository", "Response body: ${response.body()}")
@@ -112,6 +121,13 @@ class BulkSmsRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val responseData = response.body()!!
                 if (responseData.status == "success" && responseData.data.isNotEmpty()) {
+                    // Only deduct credits AFTER successful API response
+                    val deductResult = firebaseRepository.deductCredits(messageCount)
+                    if (deductResult.isFailure) {
+                        Log.w("BulkSmsRepository", "SMS sent successfully but failed to deduct credits: ${deductResult.exceptionOrNull()?.message}")
+                        // You might want to handle this case differently - perhaps log it for manual reconciliation
+                    }
+                    
                     // Create message status entries for each recipient
                     val messageStatuses = responseData.data.map { result ->
                         MessageStatus(
@@ -139,6 +155,7 @@ class BulkSmsRepositoryImpl @Inject constructor(
                 Result.failure(Exception(response.message()))
             }
         } catch (e: Exception) {
+            Log.e("BulkSmsRepository", "Exception in sendBulkSms: ${e.message}", e)
             Result.failure(e)
         }
     }

@@ -127,7 +127,9 @@ class PreviewTemplateDialog : DialogFragment() {
         
         binding.apply {
             previewText.text = preview.content
-            charCountText.text = "Characters: ${preview.charCount}/160"
+            
+            // To:
+            charCountText.text = "Characters: ${preview.charCount}/152"
             messagePartsText.text = "Message Credit(s): ${preview.messageParts}"
         }
         
@@ -141,7 +143,9 @@ class PreviewTemplateDialog : DialogFragment() {
         }
 
         val charCount = content.length
-        val messageParts = (charCount + 159) / 160 // Round up division
+        
+        // To:
+        val messageParts = (charCount + 151) / 152 // Round up division
 
         return PreviewResult(
             content = content,
