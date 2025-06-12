@@ -41,4 +41,5 @@
     <color name="avatar_color_10">#CDDC39</color>
     <color name="avatar_color_11">#FFC107</color>
     <color name="avatar_color_12">#FF9800</color>
+    <color name="error_background">#FFEBEE</color>
 </resources>

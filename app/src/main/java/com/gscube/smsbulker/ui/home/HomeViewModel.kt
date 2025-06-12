@@ -31,7 +31,8 @@ data class HomeViewState(
     val needsLogin: Boolean = false,
     val sendingStage: SendingProgressDialog.SendStage? = null,
     val message: String = "",
-    val availableCredits: Int = 0  // Change from Int to Double
+    val availableCredits: Int = 0,
+    val skippedContacts: List<SkippedContact> = emptyList()  // Add this line
 )
 
 // Add this import at the top of the file
@@ -214,8 +215,8 @@ class HomeViewModel @Inject constructor(
     fun addRecipients(contacts: List<Contact>) {
         // Filter out invalid phone numbers
         val validContacts = contacts.filter { PhoneNumberValidator.isValidGhanaNumber(it.phoneNumber) }
-        val invalidCount = contacts.size - validContacts.size
-        
+        val invalidContacts = contacts.filter { !PhoneNumberValidator.isValidGhanaNumber(it.phoneNumber) }
+
         val newRecipients = validContacts.map { contact ->
             // Format the phone number
             val formattedNumber = PhoneNumberValidator.formatGhanaNumber(contact.phoneNumber) ?: contact.phoneNumber
@@ -225,29 +226,51 @@ class HomeViewModel @Inject constructor(
                 variables = contact.variables
             )
         }
-        
+
         _state.update { currentState ->
             val existingPhoneNumbers = currentState.recipients.map { it.phoneNumber }.toSet()
             val uniqueNewRecipients = newRecipients.filter { !existingPhoneNumbers.contains(it.phoneNumber) }
-            
+            val duplicateRecipients = newRecipients.filter { existingPhoneNumbers.contains(it.phoneNumber) }
+
+            val newSkippedContacts = mutableListOf<SkippedContact>()
+
+            // Add invalid contacts to skipped list
+            invalidContacts.forEach { contact ->
+                newSkippedContacts.add(SkippedContact(
+                    phoneNumber = contact.phoneNumber,
+                    originalPhoneNumber = contact.phoneNumber,
+                    name = contact.name ?: "Unknown", // Provide a default name if null
+                    reason = SkipReason.INVALID_FORMAT
+                ))
+            }
+
+            // Add duplicate contacts to skipped list
+            duplicateRecipients.forEach { recipient ->
+                newSkippedContacts.add(SkippedContact(
+                    phoneNumber = recipient.phoneNumber,
+                    originalPhoneNumber = recipient.phoneNumber,
+                    name = recipient.name ?: "Unknown", // Provide a default name if null
+                    reason = SkipReason.DUPLICATE_CONTACT
+                ))
+            }
+
             val message = buildString {
-                if (uniqueNewRecipients.size < newRecipients.size) {
-                    // Some duplicates were found
-                    val duplicateCount = newRecipients.size - uniqueNewRecipients.size
-                    append("Skipped $duplicateCount duplicate contact(s). ")
+                if (duplicateRecipients.isNotEmpty()) {
+                    append("Skipped ${duplicateRecipients.size} duplicate contact(s). ")
                 }
-                
-                if (invalidCount > 0) {
-                    append("Skipped $invalidCount invalid phone number(s).")
+
+                if (invalidContacts.isNotEmpty()) {
+                    append("Skipped ${invalidContacts.size} invalid phone number(s).")
                 }
             }
-            
+
             if (message.isNotEmpty()) {
                 _state.value = currentState.copy(error = message)
             }
-            
+
             currentState.copy(
-                recipients = currentState.recipients + uniqueNewRecipients
+                recipients = currentState.recipients + uniqueNewRecipients,
+                skippedContacts = currentState.skippedContacts + newSkippedContacts
             )
         }
     }
@@ -403,6 +426,39 @@ class HomeViewModel @Inject constructor(
 
     fun clearSuccess() {
         _state.update { it.copy(success = null) }
+    }
+
+    fun getSkippedContacts(): List<SkippedContact> {
+        return state.value.skippedContacts
+    }
+
+    fun exportSkippedContactsToCSV() {
+        viewModelScope.launch {
+            try {
+                val skippedContacts = state.value.skippedContacts
+                if (skippedContacts.isEmpty()) {
+                    _state.update { it.copy(error = "No skipped contacts to export") }
+                    return@launch
+                }
+
+                contactsRepository.exportSkippedContactsToCSV(skippedContacts)
+                _state.update { it.copy(success = "Skipped contacts exported successfully") }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Failed to export skipped contacts: ${e.message}") }
+            }
+        }
+    }
+
+    fun clearSkippedContacts() {
+        _state.update { it.copy(skippedContacts = emptyList()) }
+    }
+
+    fun removeSkippedContact(contact: SkippedContact) {
+        _state.update { currentState ->
+            currentState.copy(
+                skippedContacts = currentState.skippedContacts.filter { it != contact }
+            )
+        }
     }
 }
 

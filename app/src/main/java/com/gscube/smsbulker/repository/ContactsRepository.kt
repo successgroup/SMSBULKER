@@ -2,6 +2,7 @@ package com.gscube.smsbulker.repository
 
 import android.net.Uri
 import com.gscube.smsbulker.data.model.Contact
+import com.gscube.smsbulker.data.model.SkippedContact
 import kotlinx.coroutines.flow.Flow
 
 interface ContactsRepository {
@@ -13,4 +14,5 @@ interface ContactsRepository {
     suspend fun exportContactsToCsv()
     suspend fun importFromPhoneContacts()
     suspend fun exportToPhoneContacts(contacts: List<Contact>)
+    suspend fun exportSkippedContactsToCSV(skippedContacts: List<SkippedContact>)
 }

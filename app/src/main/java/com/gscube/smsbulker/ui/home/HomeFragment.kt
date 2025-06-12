@@ -159,6 +159,9 @@ class HomeFragment : Fragment() {
             clearRecipientsButton.setOnClickListener {
                 viewModel.clearRecipients()
             }
+            skippedContactsButton.setOnClickListener {
+                showSkippedContactsDialog()
+            }
         }
     }
 
@@ -246,12 +249,19 @@ class HomeFragment : Fragment() {
                         viewModel.clearError()
                     }
 
-                    // Update recipients
+                    // Update recipients and skipped contacts
                     recipientsAdapter.submitList(state.recipients)
                     
                     // Show/hide recipients card and update count
                     binding.recipientsCard.isVisible = state.recipients.isNotEmpty()
                     binding.recipientCount.text = "${state.recipients.size} recipients"
+                    
+                    // Show/hide skipped contacts button
+                    val hasSkippedContacts = state.skippedContacts.isNotEmpty()
+                    binding.skippedContactsButton.isVisible = hasSkippedContacts
+                    if (hasSkippedContacts) {
+                        binding.skippedContactsButton.text = "Skipped (${state.skippedContacts.size})"
+                    }
 
                     // Handle success messages
                     state.success?.let { message ->
@@ -350,6 +360,30 @@ class HomeFragment : Fragment() {
 
     private fun showError(message: String) {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
+    }
+
+    private fun showSkippedContactsDialog() {
+        val skippedContacts = viewModel.getSkippedContacts()
+        
+        if (skippedContacts.isEmpty()) {
+            Snackbar.make(binding.root, "No skipped contacts to show", Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        
+        val dialog = SkippedContactsDialog.newInstance(
+            skippedContacts = skippedContacts,
+            onExportClick = {
+                viewModel.exportSkippedContactsToCSV()
+            },
+            onClearAllClick = {
+                viewModel.clearSkippedContacts()
+            },
+            onRemoveContact = { contact ->
+                viewModel.removeSkippedContact(contact)
+            }
+        )
+        
+        dialog.show(parentFragmentManager, "SkippedContactsDialog")
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {

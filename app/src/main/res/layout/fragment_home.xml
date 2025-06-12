@@ -142,11 +142,33 @@
 
                         <TextView
                             android:id="@+id/recipientCount"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:textAppearance="?attr/textAppearanceSubtitle1"
+                            android:text="0 recipients" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/skippedContactsButton"
+                            style="@style/Widget.Material3.Button.TextButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textAppearance="?attr/textAppearanceCaption"
-                            android:textColor="?attr/colorPrimary" />
+                            android:text="Skipped"
+                            android:textColor="?attr/colorError"
+                            android:visibility="gone"
+                            app:icon="@drawable/ic_warning"
+                            app:iconTint="?attr/colorError"
+                            app:iconSize="16dp" />
+
                     </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/senderIdDescription"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?attr/textAppearanceCaption"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:layout_marginBottom="16dp" />
 
                     <LinearLayout
                         android:layout_width="match_parent"

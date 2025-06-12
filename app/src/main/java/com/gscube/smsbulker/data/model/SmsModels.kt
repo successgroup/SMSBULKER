@@ -77,7 +77,8 @@ enum class BatchStatus {
     QUEUED,
     PROCESSING,
     COMPLETED,
-    FAILED
+    FAILED,
+    PARTIAL_SUCCESS
 }
 
 enum class SmsStatus {
@@ -124,4 +125,23 @@ data class PersonalizedSmsRequest(
     val message: String,
     val recipients: Map<String, Map<String, String>>,
     val callback_url: String? = null
+) : Parcelable
+
+enum class SkipReason {
+    TOO_SHORT,
+    TOO_LONG,
+    UNSUPPORTED_COUNTRY_CODE,
+    INVALID_NETWORK_CODE,
+    INVALID_FORMAT,
+    DUPLICATE_CONTACT // Add this new reason
+}
+
+@Parcelize
+data class SkippedContact(
+    val id: String = System.currentTimeMillis().toString(),
+    val phoneNumber: String,
+    val originalPhoneNumber: String,
+    val name: String,
+    val reason: SkipReason,
+    val skippedAt: Long = System.currentTimeMillis()
 ) : Parcelable

@@ -9,6 +9,7 @@ import android.provider.ContactsContract
 import com.gscube.smsbulker.data.local.AppDatabase
 import com.gscube.smsbulker.data.local.ContactEntity
 import com.gscube.smsbulker.data.model.Contact
+import com.gscube.smsbulker.data.model.SkippedContact
 import com.gscube.smsbulker.di.AppScope
 import com.gscube.smsbulker.repository.ContactsRepository
 import com.squareup.anvil.annotations.ContributesBinding
@@ -269,6 +270,34 @@ class ContactsRepositoryImpl @Inject constructor(
                 contentResolver.insert(ContactsContract.Data.CONTENT_URI, it)
             }
         }
+    }
+
+    override suspend fun exportSkippedContactsToCSV(skippedContacts: List<SkippedContact>): Unit = withContext(Dispatchers.IO) {
+        try {
+            val fileName = "skipped_contacts_${System.currentTimeMillis()}.csv"
+            // For now, we'll just log the export since file creation needs proper implementation
+            android.util.Log.d("ContactsRepository", "Exporting ${skippedContacts.size} skipped contacts to $fileName")
+            
+            // Simple implementation that creates a CSV string
+            val csvContent = buildString {
+                appendLine("Name,Phone Number,Original Phone Number,Reason,Skipped At")
+                skippedContacts.forEach { contact ->
+                    appendLine("\"${contact.name}\",\"${contact.phoneNumber}\",\"${contact.originalPhoneNumber}\",\"${contact.reason}\",\"${contact.skippedAt}\"")
+                }
+            }
+            
+            android.util.Log.d("ContactsRepository", "CSV Content: $csvContent")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("ContactsRepository", "Failed to export skipped contacts: ${e.message}")
+            throw Exception("Failed to export skipped contacts: ${e.message}")
+        }
+    }
+
+    private fun createCsvFile(fileName: String): Uri {
+        // Implementation depends on your file creation strategy
+        // This is a simplified version - you may need to adjust based on your app's file handling
+        throw NotImplementedError("File creation implementation needed")
     }
 
     private fun getGroupName(contentResolver: ContentResolver, groupId: String): String {
