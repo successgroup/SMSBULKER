@@ -87,6 +87,14 @@
             app:exitAnim="@anim/nav_default_exit_anim"
             app:popEnterAnim="@anim/nav_default_pop_enter_anim"
             app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+            
+        <action
+            android:id="@+id/action_accountFragment_to_paymentFragment"
+            app:destination="@id/paymentFragment"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
     </fragment>
 
     <fragment
@@ -106,6 +114,12 @@
         android:name="com.gscube.smsbulker.ui.settings.NotificationSettingsFragment"
         android:label="@string/notification_settings"
         tools:layout="@layout/fragment_notification_settings" />
+
+    <fragment
+        android:id="@+id/paymentFragment"
+        android:name="com.gscube.smsbulker.ui.payment.PaymentFragment"
+        android:label="Purchase Credits"
+        tools:layout="@layout/fragment_payment" />
 
     <fragment
         android:id="@+id/sendMessageFragment"

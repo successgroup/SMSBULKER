@@ -53,4 +53,27 @@
     <string name="send_message">Send Message</string>
     <string name="import_csv">Import CSV</string>
     <string name="title_csv_editor">CSV Editor</string>
+    
+    <!-- Payment Screen -->
+    <string name="purchase_credits">Purchase Credits</string>
+    <string name="credit_packages">Credit Packages</string>
+    <string name="custom_credits">Custom Credits</string>
+    <string name="enter_credit_amount">Enter credit amount</string>
+    <string name="calculate">Calculate</string>
+    <string name="clear_selection">Clear Selection</string>
+    <string name="proceed_to_payment">Proceed to Payment</string>
+    <string name="credits_format">%1$d Credits</string>
+    <string name="bonus_credits_format">+%1$d Bonus</string>
+    <string name="price_format">$%1$.2f</string>
+    <string name="discount_format">%1$d%% OFF</string>
+    <string name="total_credits_format">Total: %1$d Credits</string>
+    <string name="price_per_credit_format">$%1$.3f per credit</string>
+    <string name="calculation_result">Calculation Result</string>
+    <string name="total_amount">Total Amount</string>
+    <string name="payment_processing">Processing payment...</string>
+    <string name="payment_success">Payment successful!</string>
+    <string name="payment_failed">Payment failed. Please try again.</string>
+    <string name="payment_cancelled">Payment cancelled</string>
+    <string name="invalid_amount">Please enter a valid amount</string>
+    <string name="minimum_credits">Minimum 10 credits required</string>
 </resources>

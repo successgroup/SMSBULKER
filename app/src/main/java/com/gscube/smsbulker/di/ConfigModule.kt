@@ -2,12 +2,14 @@ package com.gscube.smsbulker.di
 
 import android.content.Context
 import com.gscube.smsbulker.BuildConfig
+import com.squareup.anvil.annotations.ContributesTo
 import dagger.Module
 import dagger.Provides
 import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
+@ContributesTo(AppScope::class)
 object ConfigModule {
     @Provides
     @Singleton

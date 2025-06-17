@@ -13,6 +13,7 @@ import com.gscube.smsbulker.ui.auth.SignupFragment
 import com.gscube.smsbulker.ui.contacts.ContactsFragment
 import com.gscube.smsbulker.ui.csvEditor.CsvEditorFragment
 import com.gscube.smsbulker.ui.home.HomeFragment
+import com.gscube.smsbulker.ui.payment.PaymentFragment
 import com.gscube.smsbulker.ui.settings.SettingsFragment
 import com.gscube.smsbulker.ui.templates.PreviewTemplateDialog
 import com.gscube.smsbulker.ui.templates.TemplatesFragment
@@ -39,6 +40,7 @@ interface AppComponent : ViewModelComponent {
     fun inject(fragment: ContactsFragment)
     fun inject(fragment: CsvEditorFragment)
     fun inject(fragment: SettingsFragment)
+    fun inject(fragment: PaymentFragment)
     fun inject(dialog: PreviewTemplateDialog)
 
     @Component.Factory

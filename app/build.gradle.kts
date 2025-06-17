@@ -186,6 +186,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:20.7.0")
     implementation("com.google.android.gms:play-services-base:18.3.0")
     
+    // Paystack Android SDK
+    implementation ("com.paystack.android:paystack-ui:0.0.10")
+    
     // Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

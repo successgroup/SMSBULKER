@@ -5,4 +5,8 @@
     <dimen name="nav_header_vertical_spacing">8dp</dimen>
     <dimen name="nav_header_height">176dp</dimen>
     <dimen name="fab_margin">16dp</dimen>
+    
+    <!-- Card stroke widths -->
+    <dimen name="card_normal_stroke_width">1dp</dimen>
+    <dimen name="card_selected_stroke_width">2dp</dimen>
 </resources>

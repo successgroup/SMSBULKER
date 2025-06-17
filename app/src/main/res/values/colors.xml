@@ -42,4 +42,8 @@
     <color name="avatar_color_11">#FFC107</color>
     <color name="avatar_color_12">#FF9800</color>
     <color name="error_background">#FFEBEE</color>
+     
+    <!-- Material Design Default Colors -->
+    <color name="design_default_color_outline">#DADCE0</color>
+    <color name="design_default_color_on_surface_variant">#757575</color>
 </resources>

@@ -172,6 +172,10 @@ class AccountFragment : Fragment() {
             buttonNotificationSettings.setOnClickListener {
                 findNavController().navigate(R.id.action_accountFragment_to_notificationSettingsFragment)
             }
+            
+            buttonBuyCredits.setOnClickListener {
+                findNavController().navigate(R.id.action_accountFragment_to_paymentFragment)
+            }
 
             buttonSignOut.setOnClickListener {
                 // Use proper logout that clears Firebase auth and local storage
