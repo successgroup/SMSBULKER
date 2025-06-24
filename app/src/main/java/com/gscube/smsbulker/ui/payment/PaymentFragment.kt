@@ -29,29 +29,32 @@ class PaymentFragment : Fragment() {
     private val viewModel: PaymentViewModel by viewModels { viewModelFactory }
     private lateinit var packagesAdapter: CreditPackagesAdapter
     
-    // Initialize PaymentSheet lazily in onCreate to avoid lifecycle issues
-    private val paymentSheet: PaymentSheet by lazy {
-        PaymentSheet(requireActivity()) { result -> handlePaymentResult(result) }
-    }
+    // Declare PaymentSheet as lateinit instead of lazy to initialize it at the right lifecycle moment
+    private lateinit var paymentSheet: PaymentSheet
     
     companion object {
-        private const val PAYSTACK_PUBLIC_KEY = "pk_test_your_paystack_public_key_here"
+        // TODO: Replace with your actual Paystack test public key from your Paystack dashboard
+        // The current placeholder value is causing the "Invalid key" error
+        private const val PAYSTACK_PUBLIC_KEY = "pk_test_a912b314e9f7bb48d01e62eba3194bf04d24d062"
+    }
+
+    override fun onAttach(context: android.content.Context) {
+        super.onAttach(context)
+        // Initialize dependency injection
+        (requireActivity().application as SmsBulkerApplication).appComponent.inject(this)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Initialize dependency injection
-        (requireActivity().application as SmsBulkerApplication).appComponent.inject(this)
-        
         // Initialize Paystack
         Paystack.builder()
             .setPublicKey(PAYSTACK_PUBLIC_KEY)
             .setLoggingEnabled(true)
             .build()
-            
-        // Initialize PaymentSheet early in lifecycle
-        paymentSheet
+        // Initialize PaymentSheet as early as possible
+        if (!::paymentSheet.isInitialized) {
+            paymentSheet = PaymentSheet(this) { result -> handlePaymentResult(result) }
+        }
     }
     
     override fun onCreateView(
@@ -65,7 +68,6 @@ class PaymentFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
         setupRecyclerView()
         setupClickListeners()
         observeViewModel()

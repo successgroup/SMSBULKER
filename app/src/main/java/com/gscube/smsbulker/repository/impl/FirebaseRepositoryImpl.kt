@@ -93,6 +93,43 @@ class FirebaseRepositoryImpl @Inject constructor(
                     .set(profile) // Firestore will automatically handle Timestamp objects
                     .await()
                 
+                // Create default credit balance with 10 credits for new user
+                val defaultCreditBalance = CreditBalance(
+                    availableCredits = 10,
+                    usedCredits = 0,
+                    lastUpdated = Timestamp.now(),
+                    nextRefillDate = null,
+                    autoRefillEnabled = false,
+                    lowBalanceAlert = 100
+                )
+                
+                firestore.collection("users")
+                    .document(firebaseUser.uid)
+                    .collection("creditBalance")
+                    .document("current")
+                    .set(defaultCreditBalance)
+                    .await()
+                
+                // Create default subscription (free plan)
+                val defaultSubscription = Subscription(
+                    planId = "free",
+                    planName = "Free Plan",
+                    status = "active",
+                    startDate = Timestamp.now(),
+                    endDate = Timestamp(Timestamp.now().seconds + (365 * 24 * 60 * 60), 0), // 1 year from now
+                    autoRenew = false,
+                    monthlyCredits = 0,
+                    price = 0.0,
+                    features = listOf("Basic SMS sending", "API access", "Email support")
+                )
+                
+                firestore.collection("users")
+                    .document(firebaseUser.uid)
+                    .collection("subscription")
+                    .document("current")
+                    .set(defaultSubscription)
+                    .await()
+                
                 Result.success(profile)
             } ?: Result.failure(Exception("User creation failed"))
         } catch (e: Exception) {

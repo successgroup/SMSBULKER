@@ -1,6 +1,7 @@
 package com.gscube.smsbulker.repository.impl
 
 import com.gscube.smsbulker.data.model.*
+import com.gscube.smsbulker.data.network.PaystackApiService
 import com.gscube.smsbulker.repository.PaymentRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -10,10 +11,14 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.ceil
+import com.gscube.smsbulker.di.AppScope
+import com.squareup.anvil.annotations.ContributesBinding
 
 @Singleton
+@ContributesBinding(AppScope::class)
 class PaymentRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val paystackApiService: PaystackApiService
 ) : PaymentRepository {
 
     companion object {
@@ -111,18 +116,21 @@ class PaymentRepositoryImpl @Inject constructor(
 
     override suspend fun initiatePayment(request: PaymentRequest): Result<PaymentResponse> {
         return try {
-            // In a real implementation, this would call Paystack API
-            // For now, we'll create a mock response
-            val reference = "ps_${System.currentTimeMillis()}"
+            // Call our Firebase Cloud Function to initialize the Paystack transaction
+            val response = paystackApiService.initializeTransaction(request)
             
-            val response = PaymentResponse(
-                success = true,
-                transactionId = "txn_${System.currentTimeMillis()}",
-                paystackReference = reference,
-                message = "Payment initiated successfully"
-            )
-            
-            Result.success(response)
+            if (response.isSuccessful && response.body() != null) {
+                val paymentResponse = response.body()!!
+                
+                // Check if we have a valid access_code from Paystack
+                if (paymentResponse.success && !paymentResponse.paystackReference.isNullOrEmpty()) {
+                    Result.success(paymentResponse)
+                } else {
+                    Result.failure(Exception(paymentResponse.message))
+                }
+            } else {
+                Result.failure(Exception("Failed to initialize payment: ${response.errorBody()?.string()}"))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -130,22 +138,21 @@ class PaymentRepositoryImpl @Inject constructor(
 
     override suspend fun verifyPayment(reference: String): Result<PaymentTransaction> {
         return try {
-            // In a real implementation, this would verify with Paystack API
-            // For now, we'll create a mock successful transaction
-            val transaction = PaymentTransaction(
-                id = "txn_${System.currentTimeMillis()}",
-                userId = "current_user", // This should come from auth
-                packageId = "custom",
-                amount = 1000.0,
-                currency = "NGN",
-                credits = 500,
-                status = PaymentStatus.SUCCESS,
-                paystackReference = reference,
-                createdAt = Timestamp.now(),
-                completedAt = Timestamp.now()
-            )
+            // Call our Firebase Cloud Function to verify the Paystack transaction
+            val response = paystackApiService.verifyTransaction(reference)
             
-            Result.success(transaction)
+            if (response.isSuccessful && response.body() != null) {
+                val transaction = response.body()!!
+                
+                // If the transaction was successful, save it to Firestore
+                if (transaction.status == PaymentStatus.SUCCESS) {
+                    saveTransaction(transaction)
+                }
+                
+                Result.success(transaction)
+            } else {
+                Result.failure(Exception("Failed to verify payment: ${response.errorBody()?.string()}"))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

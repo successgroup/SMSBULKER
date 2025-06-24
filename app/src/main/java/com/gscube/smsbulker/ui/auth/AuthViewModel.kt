@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.gscube.smsbulker.repository.UserRepository
+import com.gscube.smsbulker.repository.FirebaseRepository
 import com.gscube.smsbulker.utils.SecureStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -18,6 +19,7 @@ import javax.inject.Named
 
 class AuthViewModel @Inject constructor(
     private val userRepository: UserRepository,
+    private val firebaseRepository: FirebaseRepository,
     @Named("applicationContext") private val context: Context,
     private val secureStorage: SecureStorage
 ) : ViewModel() {
@@ -125,16 +127,26 @@ class AuthViewModel @Inject constructor(
                 _error.value = null
                 _authSuccess.value = false
                 
-                val result = auth.createUserWithEmailAndPassword(email, password).await()
-                result.user?.let { user ->
+                // Use FirebaseRepository to create user and Firestore document
+                firebaseRepository.signUpWithEmailAndPassword(
+                    email = email,
+                    password = password,
+                    name = companyName,
+                    phone = phone,
+                    company = companyName
+                ).onSuccess { userProfile ->
                     try {
-                        secureStorage.saveAuthData(user.uid, "ZnhoSWFRbWhBWmpIc3N3eUNEZW8", email)
+                        secureStorage.saveAuthData(userProfile.userId, "ZnhoSWFRbWhBWmpIc3N3eUNEZW8", email)
                         _authSuccess.value = true
                     } catch (e: Exception) {
                         _error.value = "Failed to save user data"
                         auth.signOut()
                         secureStorage.clearAuthData()
                     }
+                }.onFailure { exception ->
+                    _error.value = exception.message ?: "Signup failed"
+                    auth.signOut()
+                    secureStorage.clearAuthData()
                 }
             } catch (e: Exception) {
                 _error.value = e.message ?: "Signup failed"
