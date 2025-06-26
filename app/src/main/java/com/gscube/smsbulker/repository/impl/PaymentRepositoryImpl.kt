@@ -24,48 +24,87 @@ class PaymentRepositoryImpl @Inject constructor(
     companion object {
         private const val TRANSACTIONS_COLLECTION = "payment_transactions"
         private const val USERS_COLLECTION = "users"
-        private const val BASE_PRICE_PER_CREDIT = 0.057 // 2 NGN per credit
+        private const val BASE_PRICE_PER_CREDIT = 0.054 // Base price per credit in GHS
     }
 
     private val predefinedPackages = listOf(
         CreditPackage(
-            id = "starter_100",
-            name = "Starter Pack",
-            credits = 100,
-            price = 180.0,
+            id = "basic_20",
+            name = "Basic Pack",
+            credits = calculateCreditsForPrice(20.0),
+            price = 20.0,
             description = "Perfect for small businesses",
-            bonusCredits = 10,
-            discountPercentage = 10
+            bonusCredits = calculateBonusCredits(calculateCreditsForPrice(20.0)),
+            discountPercentage = calculateDiscountPercentage(calculateCreditsForPrice(20.0))
         ),
         CreditPackage(
-            id = "business_500",
-            name = "Business Pack",
-            credits = 500,
-            price = 850.0,
+            id = "standard_50",
+            name = "Standard Pack",
+            credits = calculateCreditsForPrice(50.0),
+            price = 50.0,
             description = "Great for growing businesses",
-            bonusCredits = 75,
+            bonusCredits = calculateBonusCredits(calculateCreditsForPrice(50.0)),
             isPopular = true,
-            discountPercentage = 15
+            discountPercentage = calculateDiscountPercentage(calculateCreditsForPrice(50.0))
         ),
         CreditPackage(
-            id = "enterprise_1000",
-            name = "Enterprise Pack",
-            credits = 1000,
-            price = 1600.0,
-            description = "Best value for large operations",
-            bonusCredits = 200,
-            discountPercentage = 20
-        ),
-        CreditPackage(
-            id = "premium_2500",
+            id = "premium_100",
             name = "Premium Pack",
-            credits = 2500,
-            price = 3750.0,
+            credits = calculateCreditsForPrice(100.0),
+            price = 100.0,
+            description = "Best value for large operations",
+            bonusCredits = calculateBonusCredits(calculateCreditsForPrice(100.0)),
+            discountPercentage = calculateDiscountPercentage(calculateCreditsForPrice(100.0))
+        ),
+        CreditPackage(
+            id = "enterprise_500",
+            name = "Enterprise Pack",
+            credits = calculateCreditsForPrice(500.0),
+            price = 500.0,
             description = "Maximum savings for heavy users",
-            bonusCredits = 625,
-            discountPercentage = 25
+            bonusCredits = calculateBonusCredits(calculateCreditsForPrice(500.0)),
+            discountPercentage = calculateDiscountPercentage(calculateCreditsForPrice(500.0))
         )
     )
+    
+    /**
+     * Calculate the number of credits for a given price
+     * @param price The price in GHS
+     * @return The number of credits (rounded down to nearest integer)
+     */
+    private fun calculateCreditsForPrice(price: Double): Int {
+        return (price / BASE_PRICE_PER_CREDIT).toInt()
+    }
+    
+    /**
+     * Calculate bonus credits based on the number of base credits
+     * @param credits The base number of credits
+     * @return The number of bonus credits
+     */
+    private fun calculateBonusCredits(credits: Int): Int {
+        return when {
+            credits >= 2500 -> (credits * 0.25).toInt()
+            credits >= 1000 -> (credits * 0.20).toInt()
+            credits >= 500 -> (credits * 0.15).toInt()
+            credits >= 100 -> (credits * 0.10).toInt()
+            else -> 0
+        }
+    }
+    
+    /**
+     * Calculate discount percentage based on the number of credits
+     * @param credits The number of credits
+     * @return The discount percentage
+     */
+    private fun calculateDiscountPercentage(credits: Int): Int {
+        return when {
+            credits >= 2500 -> 25
+            credits >= 1000 -> 20
+            credits >= 500 -> 15
+            credits >= 100 -> 10
+            else -> 0
+        }
+    }
 
     override suspend fun getAvailablePackages(): Result<List<CreditPackage>> {
         return try {
@@ -78,21 +117,8 @@ class PaymentRepositoryImpl @Inject constructor(
     override suspend fun calculateCustomCredits(credits: Int): Result<CreditCalculation> {
         return try {
             val baseAmount = credits * BASE_PRICE_PER_CREDIT
-            val bonusCredits = when {
-                credits >= 2500 -> (credits * 0.25).toInt()
-                credits >= 1000 -> (credits * 0.20).toInt()
-                credits >= 500 -> (credits * 0.15).toInt()
-                credits >= 100 -> (credits * 0.10).toInt()
-                else -> 0
-            }
-            
-            val discountPercentage = when {
-                credits >= 2500 -> 25
-                credits >= 1000 -> 20
-                credits >= 500 -> 15
-                credits >= 100 -> 10
-                else -> 0
-            }
+            val bonusCredits = calculateBonusCredits(credits)
+            val discountPercentage = calculateDiscountPercentage(credits)
             
             val totalAmount = baseAmount * (100 - discountPercentage) / 100
             val totalCredits = credits + bonusCredits

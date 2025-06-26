@@ -69,6 +69,12 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
+    
+    // Function to refresh credit balance and user info in real-time
+    fun refreshCreditBalance() {
+        loadCreditBalance()
+        loadUserInfo() // Also refresh sender ID
+    }
 
     init {
         loadUserInfo()
@@ -374,6 +380,9 @@ class HomeViewModel @Inject constructor(
                 _state.update { it.copy(sendingStage = SendingProgressDialog.SendStage.PROCESSING) }
 
                 response.onSuccess { bulkSmsResponse ->
+                    // Refresh credit balance after successful send
+                    loadCreditBalance()
+                    
                     // Update to COMPLETED stage with success message
                     _state.update { it.copy(
                         isLoading = false,

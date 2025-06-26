@@ -52,7 +52,7 @@ class PaymentViewModel @Inject constructor(
             selectedPackage = creditPackage,
             customCredits = creditPackage.credits,
             totalAmount = creditPackage.price,
-            baseAmount = creditPackage.credits * 0.057, // Base price per credit
+            baseAmount = creditPackage.price, // Use the package price directly as base amount
             bonusCredits = creditPackage.bonusCredits,
             totalCredits = creditPackage.credits + creditPackage.bonusCredits,
             pricePerCredit = creditPackage.price / creditPackage.credits

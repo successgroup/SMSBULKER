@@ -64,19 +64,27 @@ class BulkSmsRepositoryImpl @Inject constructor(
             
             // First, check if user has enough credits without deducting
             val currentCredits = firebaseRepository.getCurrentUserCredits()
-            Log.d("BulkSmsRepository", "Current credits: ${currentCredits.getOrNull() ?: "Unknown"}")
-            Log.d("BulkSmsRepository", "Required credits: $messageCount")
-            Log.d("BulkSmsRepository", "Credits check result: ${currentCredits.isSuccess}")
             
-            if (currentCredits.isFailure || (currentCredits.getOrNull() ?: 0.0) < messageCount) {
-                Log.e("BulkSmsRepository", "Credit check failed - Available: ${currentCredits.getOrNull()}, Required: $messageCount")
-                return Result.failure(Exception("Insufficient credits"))
-            }
-
-            // Prepare message text
+            // Calculate message pages for each recipient
             val messageText = request.messageTemplate?.let { template ->
                 request.message?.let { convertToArkeselTemplate(it) } ?: convertToArkeselTemplate(template.content)
-            } ?: request.message?.let { convertToArkeselTemplate(it) } ?: return Result.failure(Exception("No message content provided"))
+            } ?: request.message?.let { convertToArkeselTemplate(it) } ?: ""
+            
+            val charCount = messageText.length
+            val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
+            val totalCreditsRequired = pageCount * messageCount
+            
+            Log.d("BulkSmsRepository", "Current credits: ${currentCredits.getOrNull() ?: "Unknown"}")
+            Log.d("BulkSmsRepository", "Message length: $charCount characters")
+            Log.d("BulkSmsRepository", "Pages per message: $pageCount")
+            Log.d("BulkSmsRepository", "Total recipients: $messageCount")
+            Log.d("BulkSmsRepository", "Required credits: $totalCreditsRequired")
+            Log.d("BulkSmsRepository", "Credits check result: ${currentCredits.isSuccess}")
+            
+            if (currentCredits.isFailure || (currentCredits.getOrNull() ?: 0.0) < totalCreditsRequired) {
+                Log.e("BulkSmsRepository", "Credit check failed - Available: ${currentCredits.getOrNull()}, Required: $totalCreditsRequired")
+                return Result.failure(Exception("Insufficient credits"))
+            }
 
             // Get fallback sender ID
             val fallbackSenderId = try {
@@ -115,7 +123,9 @@ class BulkSmsRepositoryImpl @Inject constructor(
                     val batchStatuses = batchResult.getOrNull() ?: emptyList()
                     allMessageStatuses.addAll(batchStatuses)
                     successfulBatches++
-                    totalCreditsDeducted += recipientBatch.size
+                    // Calculate credits for this batch based on message length
+                    val batchCredits = pageCount * recipientBatch.size
+                    totalCreditsDeducted += batchCredits
                     
                     // Add delay between batches to avoid rate limiting (except for last batch)
                     if (batchIndex < recipientBatches.size - 1) {
@@ -140,6 +150,7 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
             // Deduct credits only for successful messages
             if (totalCreditsDeducted > 0) {
+                Log.d("BulkSmsRepository", "Deducting $totalCreditsDeducted credits based on message pages ($pageCount) × recipients")
                 val deductResult = firebaseRepository.deductCredits(totalCreditsDeducted)
                 if (deductResult.isFailure) {
                     Log.w("BulkSmsRepository", "SMS sent successfully but failed to deduct credits: ${deductResult.exceptionOrNull()?.message}")

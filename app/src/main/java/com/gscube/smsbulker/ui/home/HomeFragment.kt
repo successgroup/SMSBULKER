@@ -34,6 +34,7 @@ import com.gscube.smsbulker.SmsBulkerApplication
 import com.gscube.smsbulker.ui.auth.LoginActivity
 import com.gscube.smsbulker.utils.IPermissionManager
 import dagger.android.support.AndroidSupportInjection
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -268,7 +269,9 @@ class HomeFragment : Fragment() {
                         Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
                         viewModel.clearSuccess()
                     }
-                    binding.senderIdText.text = state.senderID?.let { "(Sender ID: $it)" } ?: ""
+                    // Update sender ID text with more prominence
+                    binding.senderIdText.text = state.senderID?.let { "Sender ID: $it" } ?: ""
+                    binding.senderIdText.isVisible = state.senderID != null
                 }
             }
         }
@@ -316,41 +319,48 @@ class HomeFragment : Fragment() {
     }
 
     private fun validateAndSend() {
-        val state = viewModel.state.value
-        when {
-            state.recipients.isEmpty() -> {
-                showError("Please add recipients first")
-                return
-            }
-            state.selectedTemplate == null && binding.messageInput.text.isNullOrBlank() -> {
-                showError("Please enter a message or select a template")
-                return
-            }
-        }
-    
-        // Calculate message pages
-        val messageText = binding.messageInput.text.toString()
+        // First refresh the credit balance to ensure we have the latest value
+        viewModel.refreshCreditBalance()
         
-        // To:
-        val charCount = messageText.length
-        val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
-        val totalCredits = pageCount * state.recipients.size
-    
-        // Check if user has enough credits
-        if (totalCredits > state.availableCredits) {
-            showError("Insufficient credits. You need $totalCredits credits but only have ${state.availableCredits} available.")
-            return
-        }
-    
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Confirm Send")
-            .setMessage("Are you sure you want to send this message to ${state.recipients.size} recipients?\n\n" +
-                       "This will consume $totalCredits credit(s) out of ${state.availableCredits} available.")
-            .setPositiveButton("Send") { _, _ ->
-                viewModel.sendBulkSms()
+        // Add a small delay to ensure the balance is updated before proceeding
+        lifecycleScope.launch {
+            delay(300) // Short delay to allow balance update
+            
+            val state = viewModel.state.value
+            when {
+                state.recipients.isEmpty() -> {
+                    showError("Please add recipients first")
+                    return@launch
+                }
+                state.selectedTemplate == null && binding.messageInput.text.isNullOrBlank() -> {
+                    showError("Please enter a message or select a template")
+                    return@launch
+                }
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        
+            // Calculate message pages
+            val messageText = binding.messageInput.text.toString()
+            
+            val charCount = messageText.length
+            val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
+            val totalCredits = pageCount * state.recipients.size
+        
+            // Check if user has enough credits
+            if (totalCredits > state.availableCredits) {
+                showError("Insufficient credits. You need $totalCredits credits but only have ${state.availableCredits} available.")
+                return@launch
+            }
+        
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Confirm Send")
+                .setMessage("Are you sure you want to send this message to ${state.recipients.size} recipients?\n\n" +
+                           "This will consume $totalCredits credit(s) out of ${state.availableCredits} available.")
+                .setPositiveButton("Send") { _, _ ->
+                    viewModel.sendBulkSms()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
     }
 
     private fun showProgress() {
