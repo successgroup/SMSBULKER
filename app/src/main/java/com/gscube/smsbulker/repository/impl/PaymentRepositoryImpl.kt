@@ -139,6 +139,42 @@ class PaymentRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+    
+    override suspend fun calculateCreditsFromPrice(price: Double): Result<CreditCalculation> {
+        return try {
+            // Calculate base credits from price
+            val baseCredits = calculateCreditsForPrice(price)
+            
+            // Calculate bonus credits based on the base credits
+            val bonusCredits = calculateBonusCredits(baseCredits)
+            
+            // Calculate discount percentage based on the base credits
+            val discountPercentage = calculateDiscountPercentage(baseCredits)
+            
+            // Calculate the base amount (before discount)
+            val baseAmount = baseCredits * BASE_PRICE_PER_CREDIT
+            
+            // Calculate total credits
+            val totalCredits = baseCredits + bonusCredits
+            
+            // Calculate price per credit
+            val pricePerCredit = price / baseCredits
+            
+            val calculation = CreditCalculation(
+                selectedPackage = null,
+                customCredits = baseCredits,
+                totalAmount = price,
+                baseAmount = baseAmount,
+                bonusCredits = bonusCredits,
+                totalCredits = totalCredits,
+                pricePerCredit = pricePerCredit
+            )
+            
+            Result.success(calculation)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     override suspend fun initiatePayment(request: PaymentRequest): Result<PaymentResponse> {
         return try {

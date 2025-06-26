@@ -71,7 +71,8 @@ class PaymentViewModel @Inject constructor(
         if (creditsInt != null && creditsInt > 0) {
             _uiState.value = _uiState.value.copy(
                 customCredits = creditsInt,
-                selectedPackage = null
+                selectedPackage = null,
+                calculationMode = CalculationMode.CREDITS_TO_PRICE
             )
             
             viewModelScope.launch {
@@ -86,6 +87,31 @@ class PaymentViewModel @Inject constructor(
         } else {
             _calculation.value = null
             _uiState.value = _uiState.value.copy(customCredits = null)
+        }
+    }
+    
+    fun setCustomPrice(price: String) {
+        val priceDouble = price.toDoubleOrNull()
+        if (priceDouble != null && priceDouble > 0) {
+            _uiState.value = _uiState.value.copy(
+                customPrice = priceDouble,
+                selectedPackage = null,
+                calculationMode = CalculationMode.PRICE_TO_CREDITS
+            )
+            
+            viewModelScope.launch {
+                paymentRepository.calculateCreditsFromPrice(priceDouble)
+                    .onSuccess { calculation ->
+                        _calculation.value = calculation
+                        _uiState.value = _uiState.value.copy(customCredits = calculation.customCredits)
+                    }
+                    .onFailure { error ->
+                        _uiState.value = _uiState.value.copy(error = error.message)
+                    }
+            }
+        } else {
+            _calculation.value = null
+            _uiState.value = _uiState.value.copy(customPrice = null)
         }
     }
 
@@ -173,12 +199,19 @@ class PaymentViewModel @Inject constructor(
     }
 }
 
+enum class CalculationMode {
+    CREDITS_TO_PRICE,  // Calculate price based on credits
+    PRICE_TO_CREDITS   // Calculate credits based on price
+}
+
 data class PaymentUiState(
     val isLoading: Boolean = false,
     val isProcessingPayment: Boolean = false,
     val isVerifyingPayment: Boolean = false,
     val selectedPackage: CreditPackage? = null,
     val customCredits: Int? = null,
+    val customPrice: Double? = null,
+    val calculationMode: CalculationMode = CalculationMode.CREDITS_TO_PRICE,
     val paymentResponse: PaymentResponse? = null,
     val paymentSuccess: Boolean = false,
     val successMessage: String? = null,

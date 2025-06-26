@@ -85,9 +85,40 @@ class PaymentFragment : Fragment() {
     }
 
     private fun setupClickListeners() {
+        // Set up tab selection listener
+        binding.tabLayoutCalculationMode.addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab?) {
+                when (tab?.position) {
+                    0 -> { // Credits to Price mode
+                        binding.textInputLayoutCredits.visibility = View.VISIBLE
+                        binding.textInputLayoutPrice.visibility = View.GONE
+                        binding.editTextCustomPrice.text?.clear()
+                    }
+                    1 -> { // Price to Credits mode
+                        binding.textInputLayoutCredits.visibility = View.GONE
+                        binding.textInputLayoutPrice.visibility = View.VISIBLE
+                        binding.editTextCustomCredits.text?.clear()
+                    }
+                }
+                // Clear any previous calculation
+                viewModel.clearPaymentResponse()
+            }
+
+            override fun onTabUnselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
+
+            override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
+        })
+        
         binding.buttonCalculateCustom.setOnClickListener {
-            val credits = binding.editTextCustomCredits.text.toString()
-            viewModel.setCustomCredits(credits)
+            val selectedTabPosition = binding.tabLayoutCalculationMode.selectedTabPosition
+            
+            if (selectedTabPosition == 0) { // Credits to Price mode
+                val credits = binding.editTextCustomCredits.text.toString()
+                viewModel.setCustomCredits(credits)
+            } else { // Price to Credits mode
+                val price = binding.editTextCustomPrice.text.toString()
+                viewModel.setCustomPrice(price)
+            }
         }
         
         binding.buttonProceedPayment.setOnClickListener {
@@ -200,6 +231,10 @@ class PaymentFragment : Fragment() {
 
     private fun clearSelection() {
         binding.editTextCustomCredits.text?.clear()
+        binding.editTextCustomPrice.text?.clear()
+        binding.tabLayoutCalculationMode.getTabAt(0)?.select() // Reset to Credits to Price mode
+        binding.textInputLayoutCredits.visibility = View.VISIBLE
+        binding.textInputLayoutPrice.visibility = View.GONE
         viewModel.clearPaymentResponse()
         packagesAdapter.clearSelection()
     }

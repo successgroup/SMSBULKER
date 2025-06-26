@@ -91,26 +91,73 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Custom Credits"
+                    android:text="Custom Calculator"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
+                    
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tabLayoutCalculationMode"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Enter number of credits"
-                    app:boxStrokeColor="@color/sea_blue_700"
-                    app:hintTextColor="@color/sea_blue_700">
+                    android:layout_marginBottom="12dp"
+                    app:tabTextColor="@color/sea_blue_700"
+                    app:tabSelectedTextColor="@color/sea_blue_700"
+                    app:tabIndicatorColor="@color/sea_blue_700">
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/editTextCustomCredits"
+                    <com.google.android.material.tabs.TabItem
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Credits to Price" />
+
+                    <com.google.android.material.tabs.TabItem
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Price to Credits" />
+                </com.google.android.material.tabs.TabLayout>
+
+                <FrameLayout
+                    android:id="@+id/frameLayoutCalculatorInputs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <!-- Credits Input (Default visible) -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/textInputLayoutCredits"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="number"
-                        android:maxLines="1" />
+                        android:hint="Enter number of credits"
+                        app:boxStrokeColor="@color/sea_blue_700"
+                        app:hintTextColor="@color/sea_blue_700">
 
-                </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/editTextCustomCredits"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:maxLines="1" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Price Input (Initially hidden) -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/textInputLayoutPrice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Enter amount in GHS"
+                        android:visibility="gone"
+                        app:boxStrokeColor="@color/sea_blue_700"
+                        app:hintTextColor="@color/sea_blue_700">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/editTextCustomPrice"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal"
+                            android:maxLines="1" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+                </FrameLayout>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonCalculateCustom"
