@@ -1,6 +1,7 @@
 package com.gscube.smsbulker.ui.payment
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -25,6 +26,8 @@ class PaymentFragment : Fragment() {
     
     private var _binding: FragmentPaymentBinding? = null
     private val binding get() = _binding!!
+    
+    private lateinit var paymentSummaryBottomSheet: PaymentSummaryBottomSheet
     
     private val viewModel: PaymentViewModel by viewModels { viewModelFactory }
     private lateinit var packagesAdapter: CreditPackagesAdapter
@@ -152,7 +155,14 @@ class PaymentFragment : Fragment() {
 
     private fun updateUI(state: PaymentUiState) {
         binding.progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
-        binding.progressBarPayment.visibility = if (state.isProcessingPayment || state.isVerifyingPayment) View.VISIBLE else View.GONE
+        
+        // Update progress overlay in bottom sheet if it's initialized and showing
+        if (::paymentSummaryBottomSheet.isInitialized && paymentSummaryBottomSheet.isAdded) {
+            paymentSummaryBottomSheet.showProgressOverlay(state.isProcessingPayment || state.isVerifyingPayment)
+        } else {
+            // Fallback to the main fragment progress indicator if bottom sheet isn't showing
+            binding.progressBarPayment.visibility = if (state.isProcessingPayment || state.isVerifyingPayment) View.VISIBLE else View.GONE
+        }
         
         binding.buttonProceedPayment.isEnabled = !state.isProcessingPayment && !state.isVerifyingPayment
         
@@ -169,32 +179,50 @@ class PaymentFragment : Fragment() {
             viewModel.clearPaymentResponse()
         }
         
+        // We don't need to verify payment here as it will be handled by handlePaymentResult
+        // after the payment sheet is completed
         state.paymentResponse?.let { response ->
-            if (response.success && response.paystackReference != null) {
-                // Payment initiated, now verify
-                viewModel.verifyPayment(response.paystackReference)
-            }
+            // Just log the payment response status
+            Log.d("PaymentFragment", "Payment response received: ${response.success}")
         }
     }
 
     private fun updateCalculationDisplay(calculation: com.gscube.smsbulker.data.model.CreditCalculation?) {
         if (calculation != null) {
-            binding.layoutCalculationResult.visibility = View.VISIBLE
-            binding.textViewCredits.text = "Credits: ${calculation.customCredits}"
-            binding.textViewBonusCredits.text = "Bonus Credits: ${calculation.bonusCredits}"
-            binding.textViewTotalCredits.text = "Total Credits: ${calculation.totalCredits}"
-            binding.textViewAmount.text = "Amount: GH¢${String.format("%.2f", calculation.totalAmount)}"
-            binding.textViewPricePerCredit.text = "Price per Credit: GH¢${String.format("%.2f", calculation.pricePerCredit)}"
+            android.util.Log.d("PaymentFragment", "Updating calculation display with: $calculation")
             
-            if (calculation.selectedPackage != null) {
-                binding.textViewSelectedPackage.text = "Selected: ${calculation.selectedPackage.name}"
-                binding.textViewSelectedPackage.visibility = View.VISIBLE
-            } else {
-                binding.textViewSelectedPackage.visibility = View.GONE
+            // Initialize the bottom sheet if not already initialized
+            if (!::paymentSummaryBottomSheet.isInitialized) {
+                paymentSummaryBottomSheet = PaymentSummaryBottomSheet.newInstance()
+                paymentSummaryBottomSheet.setOnProceedClickListener {
+                    proceedWithPayment()
+                }
+                paymentSummaryBottomSheet.setOnCancelClickListener {
+                    clearSelection()
+                }
             }
             
-            binding.buttonProceedPayment.visibility = View.VISIBLE
+            // Update the bottom sheet with calculation data
+            paymentSummaryBottomSheet.updateCalculationDisplay(calculation)
+            
+            // Show the bottom sheet if not already showing
+            if (!paymentSummaryBottomSheet.isAdded) {
+                paymentSummaryBottomSheet.show(parentFragmentManager, PaymentSummaryBottomSheet.TAG)
+            } else {
+                // Force update if already showing
+                paymentSummaryBottomSheet.updateCalculationDisplay(calculation)
+            }
+            
+            // IMPORTANT: Completely hide the original calculation result view
+            // to prevent ID conflicts with the bottom sheet
+            binding.layoutCalculationResult.visibility = View.GONE
+            binding.buttonProceedPayment.visibility = View.GONE
         } else {
+            // Dismiss the bottom sheet if it's showing
+            if (::paymentSummaryBottomSheet.isInitialized && paymentSummaryBottomSheet.isAdded) {
+                paymentSummaryBottomSheet.dismiss()
+            }
+            
             binding.layoutCalculationResult.visibility = View.GONE
             binding.buttonProceedPayment.visibility = View.GONE
         }
@@ -203,8 +231,18 @@ class PaymentFragment : Fragment() {
     private fun proceedWithPayment() {
         val calculation = viewModel.calculation.value ?: return
         
+        // Show progress overlay in bottom sheet if it's showing
+        if (::paymentSummaryBottomSheet.isInitialized && paymentSummaryBottomSheet.isAdded) {
+            paymentSummaryBottomSheet.showProgressOverlay(true)
+        }
+        
         // Make an API call to your backend to initialize the transaction and get an access_code
         viewModel.initiatePayment("user@example.com", "user123").observe(viewLifecycleOwner) { response ->
+            // Hide progress overlay if payment initialization is complete
+            if (::paymentSummaryBottomSheet.isInitialized && paymentSummaryBottomSheet.isAdded) {
+                paymentSummaryBottomSheet.showProgressOverlay(false)
+            }
+            
             if (response != null && response.success && response.paystackReference != null) {
                 // Launch the Paystack payment sheet with the access code
                 paymentSheet.launch(response.paystackReference)

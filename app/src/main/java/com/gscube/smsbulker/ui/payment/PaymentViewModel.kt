@@ -1,5 +1,6 @@
 package com.gscube.smsbulker.ui.payment
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -125,7 +126,7 @@ class PaymentViewModel @Inject constructor(
             val request = PaymentRequest(
                 packageId = currentCalculation.selectedPackage?.id ?: "custom",
                 amount = currentCalculation.totalAmount,
-                currency = "NGN",
+                currency = "GHS",
                 email = email,
                 userId = userId
             )
@@ -155,7 +156,16 @@ class PaymentViewModel @Inject constructor(
         return result
     }
 
+    // Flag to prevent multiple verification attempts when rate limited
+    private var isRateLimited = false
+    
     fun verifyPayment(reference: String) {
+        // Prevent multiple verification attempts if already rate limited
+        if (isRateLimited) {
+            Log.d("PaymentViewModel", "Skipping verification due to rate limiting")
+            return
+        }
+        
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isVerifyingPayment = true)
             
@@ -178,10 +188,29 @@ class PaymentViewModel @Inject constructor(
                     }
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isVerifyingPayment = false,
-                        error = error.message
-                    )
+                    // Check if the error is related to rate limiting (429 Too Many Requests)
+                    if (error.message?.contains("429") == true || 
+                        error.message?.contains("Too many requests") == true) {
+                        
+                        isRateLimited = true
+                        
+                        // Set a more user-friendly error message
+                        _uiState.value = _uiState.value.copy(
+                            isVerifyingPayment = false,
+                            error = "Server is busy. Please wait a moment before trying again."
+                        )
+                        
+                        // Reset the rate limited flag after some time
+                        viewModelScope.launch {
+                            kotlinx.coroutines.delay(15000) // 15 seconds delay
+                            isRateLimited = false
+                        }
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isVerifyingPayment = false,
+                            error = error.message
+                        )
+                    }
                 }
         }
     }
