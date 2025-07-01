@@ -2,6 +2,7 @@ package com.gscube.smsbulker.ui.contacts
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ContentProviderOperation
 import android.content.ContentResolver
 import android.content.Intent
@@ -13,6 +14,7 @@ import android.os.Environment
 import android.provider.ContactsContract
 import android.provider.Settings
 import android.view.*
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.os.bundleOf
 import androidx.core.widget.addTextChangedListener
@@ -43,6 +45,9 @@ class ContactsFragment : Fragment() {
 
     private var _binding: FragmentContactsBinding? = null
     private val binding get() = _binding!!
+    
+    // Dialog for showing loading, deleting, and adding recipients progress
+    private var contactsProcessingDialog: AlertDialog? = null
     private lateinit var contactsAdapter: ContactsAdapter
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -189,9 +194,17 @@ class ContactsFragment : Fragment() {
                 viewModel.uiState.collectLatest { state ->
                     contactsAdapter.submitList(state.contacts)
                     binding.apply {
+                        // Show/hide the progress bar in the UI
                         progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
                         emptyView.visibility = if (!state.isLoading && state.contacts.isEmpty()) View.VISIBLE else View.GONE
                         contactsRecyclerView.visibility = if (!state.isLoading && state.contacts.isNotEmpty()) View.VISIBLE else View.GONE
+                        
+                        // Show/hide the loading dialog
+                        if (state.isLoading) {
+                            showLoadingContactsDialog()
+                        } else {
+                            dismissContactsProcessingDialog()
+                        }
                     }
                 }
             }
@@ -281,20 +294,37 @@ class ContactsFragment : Fragment() {
             .setTitle("Delete Contacts")
             .setMessage("Are you sure you want to delete ${contacts.size} contact(s)?")
             .setPositiveButton("Delete") { _, _ ->
+                // Show the deleting contacts dialog
+                showDeletingContactsDialog()
+                
                 viewModel.deleteContacts(contacts)
                 contactsAdapter.clearSelection()
-                Snackbar.make(binding.root, "${contacts.size} contact(s) deleted", Snackbar.LENGTH_SHORT).show()
+                
+                // Dismiss the deleting contacts dialog after a short delay to ensure it's visible
+                binding.root.postDelayed({
+                    dismissContactsProcessingDialog()
+                    Snackbar.make(binding.root, "${contacts.size} contact(s) deleted", Snackbar.LENGTH_SHORT).show()
+                }, 1000) // 1 second delay
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
     private fun navigateToSendMessage(contacts: List<Contact>) {
-        findNavController().navigate(
-            R.id.nav_home,
-            bundleOf("selected_contacts" to ArrayList(contacts))
-        )
-        contactsAdapter.clearSelection()
+        // Show the adding recipients dialog
+        showAddingRecipientsDialog()
+        
+        // Add a small delay to ensure the dialog is visible before navigation
+        binding.root.postDelayed({
+            // Dismiss the dialog before navigating
+            dismissContactsProcessingDialog()
+            
+            findNavController().navigate(
+                R.id.nav_home,
+                bundleOf("selected_contacts" to ArrayList(contacts))
+            )
+            contactsAdapter.clearSelection()
+        }, 1000) // 1 second delay
     }
 
     private fun showExportDialog(contacts: List<Contact>) {
@@ -389,6 +419,8 @@ class ContactsFragment : Fragment() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissionLauncher.launch(arrayOf(Manifest.permission.READ_CONTACTS))
         } else {
+            // Show loading dialog before importing contacts
+            showLoadingContactsDialog()
             viewModel.importFromPhoneContacts()
         }
     }
@@ -451,7 +483,70 @@ class ContactsFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        dismissContactsProcessingDialog()
         _binding = null
+    }
+    
+    /**
+     * Shows a processing dialog with the specified title and message
+     */
+    private fun showContactsProcessingDialog(titleResId: Int, messageResId: Int) {
+        if (contactsProcessingDialog == null) {
+            val dialogView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_contacts_processing, null)
+            
+            contactsProcessingDialog = AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .setCancelable(false)
+                .create()
+        }
+        
+        // Update the dialog title and message based on the operation
+        contactsProcessingDialog?.let { dialog ->
+            if (dialog.isShowing) {
+                val titleText = dialog.findViewById<TextView>(R.id.titleText)
+                val messageText = dialog.findViewById<TextView>(R.id.messageText)
+                
+                titleText?.setText(titleResId)
+                messageText?.setText(messageResId)
+            } else {
+                dialog.show()
+                
+                val titleText = dialog.findViewById<TextView>(R.id.titleText)
+                val messageText = dialog.findViewById<TextView>(R.id.messageText)
+                
+                titleText?.setText(titleResId)
+                messageText?.setText(messageResId)
+            }
+        }
+    }
+    
+    /**
+     * Shows a dialog for loading contacts
+     */
+    private fun showLoadingContactsDialog() {
+        showContactsProcessingDialog(R.string.loading_contacts, R.string.loading_contacts_message)
+    }
+    
+    /**
+     * Shows a dialog for deleting contacts
+     */
+    private fun showDeletingContactsDialog() {
+        showContactsProcessingDialog(R.string.deleting_contacts, R.string.deleting_contacts_message)
+    }
+    
+    /**
+     * Shows a dialog for adding recipients
+     */
+    private fun showAddingRecipientsDialog() {
+        showContactsProcessingDialog(R.string.adding_recipients, R.string.adding_recipients_message)
+    }
+    
+    /**
+     * Dismisses the contacts processing dialog
+     */
+    private fun dismissContactsProcessingDialog() {
+        contactsProcessingDialog?.dismiss()
     }
 
     companion object {
