@@ -18,6 +18,7 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
     
     private var onProceedClickListener: (() -> Unit)? = null
     private var onCancelClickListener: (() -> Unit)? = null
+    private var pendingCalculation: CreditCalculation? = null
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -41,6 +42,12 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
         binding.textViewPricePerCredit.text = "Price per credit: GH¢0.00"
         binding.textViewSelectedPackage.text = "No package selected"
         binding.textViewSelectedPackage.visibility = View.GONE
+        
+        // Apply any pending calculation
+        pendingCalculation?.let { calculation ->
+            updateCalculationDisplay(calculation)
+            pendingCalculation = null
+        }
         
         // Ensure the bottom sheet is fully expanded when shown
         dialog?.setOnShowListener { dialogInterface ->
@@ -67,24 +74,36 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
     }
     
     fun updateCalculationDisplay(calculation: CreditCalculation?) {
-        if (calculation != null && _binding != null) {
-            // Log the calculation values for debugging
-            android.util.Log.d(TAG, "Updating calculation display: " + 
-                "customCredits=${calculation.customCredits}, " +
-                "bonusCredits=${calculation.bonusCredits}, " +
-                "totalCredits=${calculation.totalCredits}, " +
-                "totalAmount=${calculation.totalAmount}, " +
-                "pricePerCredit=${calculation.pricePerCredit}, " +
-                "selectedPackage=${calculation.selectedPackage?.name}")
-            
-            // Use post to ensure UI thread updates after the view is fully laid out
-            binding.root.post {
-                try {
-                    // Ensure we're still attached to the window
-                    if (!isAdded || _binding == null) {
-                        android.util.Log.w(TAG, "Fragment not attached or binding null during update")
-                        return@post
-                    }
+        if (calculation == null) {
+            android.util.Log.d(TAG, "Cannot update calculation display: calculation is null")
+            return
+        }
+        
+        // Log the calculation values for debugging
+        android.util.Log.d(TAG, "Updating calculation display: " + 
+            "customCredits=${calculation.customCredits}, " +
+            "bonusCredits=${calculation.bonusCredits}, " +
+            "totalCredits=${calculation.totalCredits}, " +
+            "totalAmount=${calculation.totalAmount}, " +
+            "pricePerCredit=${calculation.pricePerCredit}, " +
+            "selectedPackage=${calculation.selectedPackage?.name}")
+        
+        if (_binding == null || !isAdded || !isVisible) {
+            // Store calculation for later when view is ready
+            android.util.Log.d(TAG, "View not ready, storing calculation for later")
+            pendingCalculation = calculation
+            return
+        }
+        
+        // Use post to ensure UI thread updates after the view is fully laid out
+        binding.root.post {
+            try {
+                // Double-check we're still ready
+                if (!isAdded || _binding == null || !isVisible) {
+                    android.util.Log.w(TAG, "Fragment not ready for update: isAdded=$isAdded, binding=${_binding != null}, isVisible=$isVisible")
+                    pendingCalculation = calculation
+                    return@post
+                }
                     
                     // Update base credits with null check
                     binding.textViewCredits.text = calculation.customCredits.toString()
@@ -136,9 +155,6 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
                     android.util.Log.e(TAG, "Error updating calculation display", e)
                 }
             }
-        } else {
-            android.util.Log.d(TAG, "Cannot update calculation display: calculation=$calculation, _binding=$_binding")
-        }
     }
     
     fun showProgressOverlay(show: Boolean) {

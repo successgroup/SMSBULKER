@@ -128,7 +128,8 @@ class PaymentViewModel @Inject constructor(
                 amount = currentCalculation.totalAmount,
                 currency = "GHS",
                 email = email,
-                userId = userId
+                userId = userId,
+                credits = currentCalculation.totalCredits
             )
             
             paymentRepository.initiatePayment(request)

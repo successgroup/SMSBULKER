@@ -70,6 +70,8 @@
     <string name="price_per_credit_format">$%1$.3f per credit</string>
     <string name="calculation_result">Calculation Result</string>
     <string name="total_amount">Total Amount</string>
+    <string name="connecting_to_payment_portal">Connecting to Payment Portal</string>
+    <string name="payment_portal_message">Please wait while we connect you to the payment portal. This may take a few moments.</string>
     <string name="payment_processing">Processing payment...</string>
     <string name="payment_success">Payment successful!</string>
     <string name="payment_failed">Payment failed. Please try again.</string>

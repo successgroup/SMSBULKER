@@ -1,5 +1,6 @@
 package com.gscube.smsbulker.ui.payment
 
+import android.app.AlertDialog
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -10,6 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.firebase.auth.FirebaseAuth
 import com.gscube.smsbulker.SmsBulkerApplication
 import com.gscube.smsbulker.databinding.FragmentPaymentBinding
 import com.gscube.smsbulker.di.ViewModelFactory
@@ -34,6 +36,9 @@ class PaymentFragment : Fragment() {
     
     // Declare PaymentSheet as lateinit instead of lazy to initialize it at the right lifecycle moment
     private lateinit var paymentSheet: PaymentSheet
+    
+    // Add the missing paymentProcessingDialog property
+    private var paymentProcessingDialog: AlertDialog? = null
     
     companion object {
         // TODO: Replace with your actual Paystack test public key from your Paystack dashboard
@@ -73,6 +78,7 @@ class PaymentFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupClickListeners()
+        hideOldCalculationViews() // Hide old calculation views from the start
         observeViewModel()
     }
 
@@ -187,6 +193,17 @@ class PaymentFragment : Fragment() {
         }
     }
 
+    private fun hideOldCalculationViews() {
+        // Hide all the old calculation display views that are still in the fragment layout
+        binding.textViewSelectedPackage.visibility = View.GONE
+        binding.textViewCredits.text = "0"
+        binding.textViewBonusCredits.text = "0"
+        binding.textViewTotalCredits.text = "0"
+        binding.textViewAmount.text = "GH¢0.00"
+        binding.textViewPricePerCredit.text = ""
+        binding.buttonProceedPayment.visibility = View.GONE
+    }
+
     private fun updateCalculationDisplay(calculation: com.gscube.smsbulker.data.model.CreditCalculation?) {
         if (calculation != null) {
             android.util.Log.d("PaymentFragment", "Updating calculation display with: $calculation")
@@ -202,42 +219,49 @@ class PaymentFragment : Fragment() {
                 }
             }
             
-            // Update the bottom sheet with calculation data
-            paymentSummaryBottomSheet.updateCalculationDisplay(calculation)
-            
             // Show the bottom sheet if not already showing
             if (!paymentSummaryBottomSheet.isAdded) {
                 paymentSummaryBottomSheet.show(parentFragmentManager, PaymentSummaryBottomSheet.TAG)
+                // Update after showing to ensure views are properly initialized
+                paymentSummaryBottomSheet.view?.post {
+                    paymentSummaryBottomSheet.updateCalculationDisplay(calculation)
+                }
             } else {
-                // Force update if already showing
+                // Update immediately if already showing
                 paymentSummaryBottomSheet.updateCalculationDisplay(calculation)
             }
             
-            // IMPORTANT: Completely hide the original calculation result view
-            // to prevent ID conflicts with the bottom sheet
-            binding.layoutCalculationResult.visibility = View.GONE
-            binding.buttonProceedPayment.visibility = View.GONE
+            // IMPORTANT: Hide the old calculation display views in the fragment
+            // to prevent conflicts with the bottom sheet
+            hideOldCalculationViews()
         } else {
             // Dismiss the bottom sheet if it's showing
             if (::paymentSummaryBottomSheet.isInitialized && paymentSummaryBottomSheet.isAdded) {
                 paymentSummaryBottomSheet.dismiss()
             }
             
-            binding.layoutCalculationResult.visibility = View.GONE
-            binding.buttonProceedPayment.visibility = View.GONE
+            hideOldCalculationViews()
         }
     }
 
     private fun proceedWithPayment() {
         val calculation = viewModel.calculation.value ?: return
         
+        // Show payment processing dialog
+        showPaymentProcessingDialog()
+        
         // Show progress overlay in bottom sheet if it's showing
         if (::paymentSummaryBottomSheet.isInitialized && paymentSummaryBottomSheet.isAdded) {
             paymentSummaryBottomSheet.showProgressOverlay(true)
         }
         
+        // Get the current user's email and ID from the authentication system
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        val userEmail = currentUser?.email ?: "user@example.com"
+        val userId = currentUser?.uid ?: "user123"
+        
         // Make an API call to your backend to initialize the transaction and get an access_code
-        viewModel.initiatePayment("user@example.com", "user123").observe(viewLifecycleOwner) { response ->
+        viewModel.initiatePayment(userEmail, userId).observe(viewLifecycleOwner) { response ->
             // Hide progress overlay if payment initialization is complete
             if (::paymentSummaryBottomSheet.isInitialized && paymentSummaryBottomSheet.isAdded) {
                 paymentSummaryBottomSheet.showProgressOverlay(false)
@@ -245,8 +269,10 @@ class PaymentFragment : Fragment() {
             
             if (response != null && response.success && response.paystackReference != null) {
                 // Launch the Paystack payment sheet with the access code
+                dismissPaymentProcessingDialog()
                 paymentSheet.launch(response.paystackReference)
             } else {
+                dismissPaymentProcessingDialog()
                 Toast.makeText(requireContext(), "Failed to initiate payment", Toast.LENGTH_LONG).show()
             }
         }
@@ -266,7 +292,8 @@ class PaymentFragment : Fragment() {
             }
         }
     }
-
+    
+    // Add the missing clearSelection method
     private fun clearSelection() {
         binding.editTextCustomCredits.text?.clear()
         binding.editTextCustomPrice.text?.clear()
@@ -276,9 +303,28 @@ class PaymentFragment : Fragment() {
         viewModel.clearPaymentResponse()
         packagesAdapter.clearSelection()
     }
-
+    
+    private fun showPaymentProcessingDialog() {
+        if (paymentProcessingDialog == null) {
+            val dialogView = LayoutInflater.from(requireContext())
+                .inflate(com.gscube.smsbulker.R.layout.dialog_payment_processing, null)
+            
+            paymentProcessingDialog = AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .setCancelable(false)
+                .create()
+        }
+        
+        paymentProcessingDialog?.show()
+    }
+    
+    private fun dismissPaymentProcessingDialog() {
+        paymentProcessingDialog?.dismiss()
+    }
+    
     override fun onDestroyView() {
         super.onDestroyView()
+        dismissPaymentProcessingDialog()
         _binding = null
     }
 }

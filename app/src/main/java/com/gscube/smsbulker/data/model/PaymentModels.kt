@@ -47,7 +47,8 @@ data class PaymentRequest(
     val amount: Double,
     val currency: String,
     val email: String,
-    val userId: String
+    val userId: String,
+    val credits: Int
 ) : Parcelable
 
 @Parcelize
