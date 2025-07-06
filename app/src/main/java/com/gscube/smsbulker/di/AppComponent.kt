@@ -15,6 +15,7 @@ import com.gscube.smsbulker.ui.csvEditor.CsvEditorFragment
 import com.gscube.smsbulker.ui.home.HomeFragment
 import com.gscube.smsbulker.ui.payment.PaymentFragment
 import com.gscube.smsbulker.ui.settings.SettingsFragment
+import com.gscube.smsbulker.ui.templates.ai.AITemplateGeneratorDialog
 import com.gscube.smsbulker.ui.templates.PreviewTemplateDialog
 import com.gscube.smsbulker.ui.templates.TemplatesFragment
 import com.squareup.anvil.annotations.MergeComponent
@@ -42,6 +43,7 @@ interface AppComponent : ViewModelComponent {
     fun inject(fragment: SettingsFragment)
     fun inject(fragment: PaymentFragment)
     fun inject(dialog: PreviewTemplateDialog)
+    fun inject(dialog: AITemplateGeneratorDialog)
 
     @Component.Factory
     interface Factory {

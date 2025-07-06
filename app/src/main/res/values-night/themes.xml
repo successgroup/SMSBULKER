@@ -22,4 +22,15 @@
     <style name="Theme.SMSBulker.AppBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar" />
 
     <style name="Theme.SMSBulker.PopupOverlay" parent="ThemeOverlay.MaterialComponents.Dark" />
+
+    <!-- Full Screen Dialog Theme -->
+    <style name="Theme.SMSBulker.FullScreenDialog" parent="Theme.MaterialComponents.DayNight.Dialog">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+    </style>
 </resources>

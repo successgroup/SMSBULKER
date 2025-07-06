@@ -12,6 +12,7 @@ import com.gscube.smsbulker.ui.templates.TemplatesViewModel
 import com.gscube.smsbulker.ui.sendMessage.SendMessageViewModel
 import com.gscube.smsbulker.ui.sms.SmsViewModel
 import com.gscube.smsbulker.ui.payment.PaymentViewModel
+import com.gscube.smsbulker.ui.templates.AITemplateViewModel
 import com.squareup.anvil.annotations.ContributesTo
 import dagger.Binds
 import dagger.Module
@@ -73,4 +74,9 @@ abstract class ViewModelModule {
     @IntoMap
     @ViewModelKey(PaymentViewModel::class)
     abstract fun bindPaymentViewModel(viewModel: PaymentViewModel): ViewModel
+
+    @Binds
+    @IntoMap
+    @ViewModelKey(AITemplateViewModel::class)
+    abstract fun bindAITemplateViewModel(viewModel: AITemplateViewModel): ViewModel
 }

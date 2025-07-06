@@ -16,6 +16,7 @@ import com.gscube.smsbulker.data.model.MessageTemplate
 import com.gscube.smsbulker.data.model.TemplateCategory
 import com.gscube.smsbulker.databinding.FragmentTemplatesBinding
 import com.gscube.smsbulker.databinding.DialogEditTemplateBinding
+import com.gscube.smsbulker.ui.templates.ai.AITemplateGeneratorDialog
 import javax.inject.Inject
 
 class TemplatesFragment : Fragment() {
@@ -91,7 +92,16 @@ class TemplatesFragment : Fragment() {
 
     private fun setupFab() {
         binding.addTemplateButton.setOnClickListener {
-            showEditTemplateDialog(null)
+            // Show options for adding a template
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Add Template")
+                .setItems(arrayOf("Create Manually", "AI Generator")) { _, which ->
+                    when (which) {
+                        0 -> showEditTemplateDialog(null)
+                        1 -> showAITemplateGeneratorDialog()
+                    }
+                }
+                .show()
         }
     }
 
@@ -177,8 +187,16 @@ class TemplatesFragment : Fragment() {
             .show(childFragmentManager, "preview_dialog")
     }
 
+    private fun showAITemplateGeneratorDialog() {
+        val dialog = AITemplateGeneratorDialog.newInstance()
+        dialog.setOnTemplateGeneratedListener { template ->
+            viewModel.saveTemplate(template)
+        }
+        dialog.show(childFragmentManager, "ai_template_generator_dialog")
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
     }
-} 
+}

@@ -14,7 +14,8 @@ import dagger.Module
         StorageModule::class,
         CsvModule::class,
         ViewModelModule::class,
-        ConfigModule::class  // Add this if you're using ConfigModule
+        ConfigModule::class,
+        AITemplateModule::class
     ]
 )
 @ContributesTo(AppScope::class)
