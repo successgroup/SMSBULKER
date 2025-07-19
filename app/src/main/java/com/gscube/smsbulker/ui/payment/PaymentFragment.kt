@@ -12,6 +12,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.auth.FirebaseAuth
+import com.gscube.smsbulker.MainActivity
 import com.gscube.smsbulker.SmsBulkerApplication
 import com.gscube.smsbulker.databinding.FragmentPaymentBinding
 import com.gscube.smsbulker.di.ViewModelFactory
@@ -181,8 +182,13 @@ class PaymentFragment : Fragment() {
             state.successMessage?.let { message ->
                 Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
             }
-            // Navigate back or refresh UI
+            // Refresh credit balance in HomeViewModel
+            (requireActivity() as? MainActivity)?.refreshCreditBalance()
+            // Navigate back to AccountFragment
+            requireActivity().onBackPressed()
+            // Clear payment response and dismiss dialog
             viewModel.clearPaymentResponse()
+            dismissPaymentProcessingDialog()
         }
         
         // We don't need to verify payment here as it will be handled by handlePaymentResult

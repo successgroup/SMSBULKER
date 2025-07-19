@@ -28,6 +28,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.gscube.smsbulker.R
 import com.gscube.smsbulker.data.model.BulkSmsResult
+import com.gscube.smsbulker.data.model.Recipient
 import com.gscube.smsbulker.data.model.Contact
 import com.gscube.smsbulker.databinding.FragmentHomeBinding
 import com.gscube.smsbulker.SmsBulkerApplication
@@ -338,12 +339,29 @@ class HomeFragment : Fragment() {
                 }
             }
         
-            // Calculate message pages
+            // Get message text
             val messageText = binding.messageInput.text.toString()
             
-            val charCount = messageText.length
-            val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
-            val totalCredits = pageCount * state.recipients.size
+            // Check if message contains placeholders
+            val hasPlaceholders = containsPlaceholders(messageText)
+            
+            // Calculate required credits based on actual message length after placeholder substitution
+            var totalCredits = 0
+            
+            if (hasPlaceholders) {
+                // For messages with placeholders, calculate credits for each recipient individually
+                for (recipient in state.recipients) {
+                    val personalizedMessage = replacePlaceholders(messageText, recipient)
+                    val charCount = personalizedMessage.length
+                    val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
+                    totalCredits += pageCount
+                }
+            } else {
+                // For messages without placeholders, use the same length for all recipients
+                val charCount = messageText.length
+                val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
+                totalCredits = pageCount * state.recipients.size
+            }
         
             // Check if user has enough credits
             if (totalCredits > state.availableCredits) {
@@ -354,7 +372,8 @@ class HomeFragment : Fragment() {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Confirm Send")
                 .setMessage("Are you sure you want to send this message to ${state.recipients.size} recipients?\n\n" +
-                           "This will consume $totalCredits credit(s) out of ${state.availableCredits} available.")
+                           "This will consume $totalCredits credit(s) out of ${state.availableCredits} available." +
+                           (if (hasPlaceholders) "\n\nNote: Credit calculation is based on personalized message length after placeholder replacement." else ""))
                 .setPositiveButton("Send") { _, _ ->
                     viewModel.sendBulkSms()
                 }
@@ -396,6 +415,38 @@ class HomeFragment : Fragment() {
         dialog.show(parentFragmentManager, "SkippedContactsDialog")
     }
 
+    // Helper method to check if message contains placeholders
+    private fun containsPlaceholders(message: String): Boolean {
+        // Check for both {name} and <%name%> formats
+        return Regex("\\{(\\w+)\\}").find(message) != null || 
+               Regex("<%([\\w]+)%>").find(message) != null
+    }
+    
+    // Helper method to replace placeholders with recipient data
+    private fun replacePlaceholders(message: String, recipient: Recipient): String {
+        if (recipient.variables.isNullOrEmpty()) {
+            return message
+        }
+        
+        var personalizedMessage = message
+        
+        // Replace {name} format
+        val curlyBraceRegex = Regex("\\{(\\w+)\\}")
+        personalizedMessage = personalizedMessage.replace(curlyBraceRegex) { matchResult ->
+            val variableName = matchResult.groupValues[1]
+            recipient.variables[variableName] ?: matchResult.value
+        }
+        
+        // Replace <%name%> format
+        val arkeselRegex = Regex("<%([\\w]+)%>")
+        personalizedMessage = personalizedMessage.replace(arkeselRegex) { matchResult ->
+            val variableName = matchResult.groupValues[1]
+            recipient.variables[variableName] ?: matchResult.value
+        }
+        
+        return personalizedMessage
+    }
+    
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
         inflater.inflate(R.menu.menu_home, menu)
     }

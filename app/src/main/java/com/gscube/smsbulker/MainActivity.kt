@@ -29,9 +29,12 @@ class MainActivity : AppCompatActivity() {
     private val authViewModel: AuthViewModel by lazy {
         ViewModelProvider(this, viewModelFactory)[AuthViewModel::class.java]
     }
+    
+    private val homeViewModel: com.gscube.smsbulker.ui.home.HomeViewModel by lazy {
+        ViewModelProvider(this, viewModelFactory)[com.gscube.smsbulker.ui.home.HomeViewModel::class.java]
+    }
+    
     private var isNavigating = false
-
-    // Add this import at the top with other imports
     
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -122,5 +125,10 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         isNavigating = false
+    }
+    
+    // Method to refresh credit balance after successful payment
+    fun refreshCreditBalance() {
+        homeViewModel.refreshCreditBalance()
     }
 }

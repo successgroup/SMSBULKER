@@ -173,8 +173,8 @@ class PaymentViewModel @Inject constructor(
             paymentRepository.verifyPayment(reference)
                 .onSuccess { transaction ->
                     if (transaction.status == PaymentStatus.SUCCESS) {
-                        // Update user credits
-                        paymentRepository.updateUserCredits(transaction.userId, transaction.credits)
+                        // Credits are already updated by the backend service
+                        // No need to update credits here to avoid permission issues
                         
                         _uiState.value = _uiState.value.copy(
                             isVerifyingPayment = false,

@@ -7,6 +7,7 @@ import com.gscube.smsbulker.ui.analytics.AnalyticsViewModel
 import com.gscube.smsbulker.ui.auth.AuthViewModel
 import com.gscube.smsbulker.ui.contacts.ContactsViewModel
 import com.gscube.smsbulker.ui.csvEditor.CsvEditorViewModel
+import com.gscube.smsbulker.ui.home.HomeViewModel
 import com.gscube.smsbulker.ui.settings.SettingsViewModel
 import com.gscube.smsbulker.ui.templates.TemplatesViewModel
 import com.gscube.smsbulker.ui.sendMessage.SendMessageViewModel
@@ -79,4 +80,9 @@ abstract class ViewModelModule {
     @IntoMap
     @ViewModelKey(AITemplateViewModel::class)
     abstract fun bindAITemplateViewModel(viewModel: AITemplateViewModel): ViewModel
+    
+    @Binds
+    @IntoMap
+    @ViewModelKey(HomeViewModel::class)
+    abstract fun bindHomeViewModel(viewModel: HomeViewModel): ViewModel
 }

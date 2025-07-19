@@ -1,7 +1,6 @@
 package com.gscube.smsbulker.repository.impl
 
 import com.gscube.smsbulker.data.model.*
-import com.gscube.smsbulker.data.network.PaystackApiService
 import com.gscube.smsbulker.repository.PaymentRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -13,6 +12,7 @@ import javax.inject.Singleton
 import kotlin.math.ceil
 import com.gscube.smsbulker.di.AppScope
 import com.squareup.anvil.annotations.ContributesBinding
+import com.gscube.smsbulker.data.network.PaystackApiService
 
 @Singleton
 @ContributesBinding(AppScope::class)
@@ -24,45 +24,45 @@ class PaymentRepositoryImpl @Inject constructor(
     companion object {
         private const val TRANSACTIONS_COLLECTION = "payment_transactions"
         private const val USERS_COLLECTION = "users"
-        private const val BASE_PRICE_PER_CREDIT = 0.054
+        private const val BASE_PRICE_PER_CREDIT = 0.054 // 2 NGN per credit
     }
 
     private val predefinedPackages = listOf(
         CreditPackage(
-            id = "starter_20",
+            id = "starter_100",
             name = "Starter Pack",
-            credits = 350,
-            price = 20.0,
+            credits = 100,
+            price = 100.0,
             description = "Perfect for small businesses",
-            bonusCredits = 35,
+            bonusCredits = 10,
             discountPercentage = 10
         ),
         CreditPackage(
-            id = "business_50",
+            id = "business_500",
             name = "Business Pack",
-            credits = 875,
-            price = 50.0,
+            credits = 500,
+            price = 500.0,
             description = "Great for growing businesses",
-            bonusCredits = 131,
+            bonusCredits = 75,
             isPopular = true,
             discountPercentage = 15
         ),
         CreditPackage(
-            id = "enterprise_100",
+            id = "enterprise_1000",
             name = "Enterprise Pack",
-            credits = 1750,
-            price = 100.0,
+            credits = 1000,
+            price = 1000.0,
             description = "Best value for large operations",
-            bonusCredits = 350,
+            bonusCredits = 200,
             discountPercentage = 20
         ),
         CreditPackage(
-            id = "premium_500",
+            id = "premium_2500",
             name = "Premium Pack",
-            credits = 8750,
-            price = 500.0,
+            credits = 2500,
+            price = 2500.0,
             description = "Maximum savings for heavy users",
-            bonusCredits = 2188,
+            bonusCredits = 625,
             discountPercentage = 25
         )
     )
@@ -113,13 +113,13 @@ class PaymentRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
     override suspend fun calculateCreditsFromPrice(price: Double): Result<CreditCalculation> {
         return try {
-            // Calculate how many credits the price can buy at base rate
+            // Calculate base credits from price using the BASE_PRICE_PER_CREDIT
             val baseCredits = (price / BASE_PRICE_PER_CREDIT).toInt()
             
-            // Determine bonus credits based on the credit tier
+            // Determine bonus credits based on the calculated base credits
             val bonusCredits = when {
                 baseCredits >= 2500 -> (baseCredits * 0.25).toInt()
                 baseCredits >= 1000 -> (baseCredits * 0.20).toInt()
@@ -128,7 +128,7 @@ class PaymentRepositoryImpl @Inject constructor(
                 else -> 0
             }
             
-            // Calculate discount percentage based on the credit tier
+            // Calculate discount percentage based on the number of credits
             val discountPercentage = when {
                 baseCredits >= 2500 -> 25
                 baseCredits >= 1000 -> 20
@@ -137,11 +137,14 @@ class PaymentRepositoryImpl @Inject constructor(
                 else -> 0
             }
             
-            // Apply discount to the base amount
+            // Calculate the base amount before discount
             val baseAmount = baseCredits * BASE_PRICE_PER_CREDIT
-            val totalAmount = price // Use the exact price provided
+            
+            // Apply discount to get total amount
+            val totalAmount = price // Use the input price as the total amount
+            
             val totalCredits = baseCredits + bonusCredits
-            val pricePerCredit = if (baseCredits > 0) totalAmount / baseCredits else 0.0
+            val pricePerCredit = if (baseCredits > 0) totalAmount / baseCredits else BASE_PRICE_PER_CREDIT
             
             val calculation = CreditCalculation(
                 selectedPackage = null,
@@ -196,20 +199,9 @@ class PaymentRepositoryImpl @Inject constructor(
                 
                 Result.success(transaction)
             } else {
-                // Check for rate limiting (HTTP 429)
-                if (response.code() == 429) {
-                    val retryAfter = response.headers()["Retry-After"] ?: "60"
-                    val errorMessage = "Too many requests. Please try again after $retryAfter seconds."
-                    android.util.Log.e("PaymentRepository", errorMessage)
-                    Result.failure(Exception(errorMessage))
-                } else {
-                    val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                    android.util.Log.e("PaymentRepository", "Failed to verify payment: $errorBody")
-                    Result.failure(Exception("Failed to verify payment: $errorBody"))
-                }
+                Result.failure(Exception("Failed to verify payment: ${response.errorBody()?.string()}"))
             }
         } catch (e: Exception) {
-            android.util.Log.e("PaymentRepository", "Exception during payment verification", e)
             Result.failure(e)
         }
     }

@@ -49,6 +49,36 @@ class BulkSmsRepositoryImpl @Inject constructor(
             "<%$variableName%>"
         }
     }
+    
+    private fun containsPlaceholders(message: String): Boolean {
+        // Check for both {name} and <%name%> formats
+        return Regex("\\{(\\w+)\\}").find(message) != null || 
+               Regex("<%([\\w]+)%>").find(message) != null
+    }
+    
+    private fun replacePlaceholders(message: String, recipient: Recipient): String {
+        if (recipient.variables.isNullOrEmpty()) {
+            return message
+        }
+        
+        var personalizedMessage = message
+        
+        // Replace {name} format
+        val curlyBraceRegex = Regex("\\{(\\w+)\\}")
+        personalizedMessage = personalizedMessage.replace(curlyBraceRegex) { matchResult ->
+            val variableName = matchResult.groupValues[1]
+            recipient.variables[variableName] ?: matchResult.value
+        }
+        
+        // Replace <%name%> format
+        val arkeselRegex = Regex("<%([\\w]+)%>")
+        personalizedMessage = personalizedMessage.replace(arkeselRegex) { matchResult ->
+            val variableName = matchResult.groupValues[1]
+            recipient.variables[variableName] ?: matchResult.value
+        }
+        
+        return personalizedMessage
+    }
 
     override suspend fun sendBulkSms(request: BulkSmsRequest): Result<BulkSmsResponse> {
         return try {
@@ -70,13 +100,42 @@ class BulkSmsRepositoryImpl @Inject constructor(
                 request.message?.let { convertToArkeselTemplate(it) } ?: convertToArkeselTemplate(template.content)
             } ?: request.message?.let { convertToArkeselTemplate(it) } ?: ""
             
-            val charCount = messageText.length
-            val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
-            val totalCreditsRequired = pageCount * messageCount
+            // Check if we have recipients
+            if (request.recipients.isEmpty()) {
+                return Result.failure(Exception("No recipients provided"))
+            }
+            
+            // Check if message contains placeholders
+            val hasPlaceholders = containsPlaceholders(messageText)
+            
+            // Calculate required credits based on actual message length after placeholder substitution
+            var totalCreditsRequired = 0
+            
+            if (hasPlaceholders) {
+                // For messages with placeholders, calculate credits for each recipient individually
+                for (recipient in request.recipients) {
+                    val personalizedMessage = replacePlaceholders(messageText, recipient)
+                    val charCount = personalizedMessage.length
+                    val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
+                    totalCreditsRequired += pageCount
+                }
+                Log.d("BulkSmsRepository", "Message contains placeholders - calculating individual message lengths")
+            } else {
+                // For messages without placeholders, use the same length for all recipients
+                val charCount = messageText.length
+                val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
+                totalCreditsRequired = pageCount * messageCount
+            }
             
             Log.d("BulkSmsRepository", "Current credits: ${currentCredits.getOrNull() ?: "Unknown"}")
-            Log.d("BulkSmsRepository", "Message length: $charCount characters")
-            Log.d("BulkSmsRepository", "Pages per message: $pageCount")
+            if (hasPlaceholders) {
+                Log.d("BulkSmsRepository", "Message contains placeholders - individual lengths calculated")
+            } else {
+                val charCount = messageText.length
+                val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
+                Log.d("BulkSmsRepository", "Message length: $charCount characters")
+                Log.d("BulkSmsRepository", "Pages per message: $pageCount")
+            }
             Log.d("BulkSmsRepository", "Total recipients: $messageCount")
             Log.d("BulkSmsRepository", "Required credits: $totalCreditsRequired")
             Log.d("BulkSmsRepository", "Credits check result: ${currentCredits.isSuccess}")
@@ -123,8 +182,26 @@ class BulkSmsRepositoryImpl @Inject constructor(
                     val batchStatuses = batchResult.getOrNull() ?: emptyList()
                     allMessageStatuses.addAll(batchStatuses)
                     successfulBatches++
-                    // Calculate credits for this batch based on message length
-                    val batchCredits = pageCount * recipientBatch.size
+                    // Calculate credits for this batch based on actual message length after placeholder substitution
+                    var batchCredits = 0
+                    val hasPlaceholders = containsPlaceholders(messageText)
+                    
+                    if (hasPlaceholders) {
+                        // For messages with placeholders, calculate credits for each recipient individually
+                        for (recipient in recipientBatch) {
+                            val personalizedMessage = replacePlaceholders(messageText, recipient)
+                            val charCount = personalizedMessage.length
+                            val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
+                            batchCredits += pageCount
+                        }
+                        Log.d("BulkSmsRepository", "Batch with placeholders - calculated individual message lengths")
+                    } else {
+                        // For messages without placeholders, use the same length for all recipients
+                        val charCount = messageText.length
+                        val pageCount = if (charCount == 0) 0 else ((charCount - 1) / 152) + 1
+                        batchCredits = pageCount * recipientBatch.size
+                    }
+                    
                     totalCreditsDeducted += batchCredits
                     
                     // Add delay between batches to avoid rate limiting (except for last batch)
@@ -150,7 +227,12 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
             // Deduct credits only for successful messages
             if (totalCreditsDeducted > 0) {
-                Log.d("BulkSmsRepository", "Deducting $totalCreditsDeducted credits based on message pages ($pageCount) × recipients")
+                if (hasPlaceholders) {
+                    Log.d("BulkSmsRepository", "Deducting $totalCreditsDeducted credits based on individual message lengths with placeholders")
+                } else {
+                    val pageCount = if (messageText.isEmpty()) 0 else ((messageText.length - 1) / 152) + 1
+                    Log.d("BulkSmsRepository", "Deducting $totalCreditsDeducted credits based on message pages ($pageCount) × recipients")
+                }
                 val deductResult = firebaseRepository.deductCredits(totalCreditsDeducted)
                 if (deductResult.isFailure) {
                     Log.w("BulkSmsRepository", "SMS sent successfully but failed to deduct credits: ${deductResult.exceptionOrNull()?.message}")

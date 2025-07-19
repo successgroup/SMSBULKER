@@ -219,78 +219,120 @@ class HomeViewModel @Inject constructor(
     }
 
     fun addRecipients(contacts: List<Contact>) {
-        // Filter out invalid phone numbers
-        val validContacts = contacts.filter { PhoneNumberValidator.isValidGhanaNumber(it.phoneNumber) }
-        val invalidContacts = contacts.filter { !PhoneNumberValidator.isValidGhanaNumber(it.phoneNumber) }
-
-        val newRecipients = validContacts.map { contact ->
-            // Format the phone number
-            val formattedNumber = PhoneNumberValidator.formatGhanaNumber(contact.phoneNumber) ?: contact.phoneNumber
-            Recipient(
-                name = contact.name,
-                phoneNumber = formattedNumber,
-                variables = contact.variables
-            )
-        }
-
-        _state.update { currentState ->
-            val existingPhoneNumbers = currentState.recipients.map { it.phoneNumber }.toSet()
-            val uniqueNewRecipients = newRecipients.filter { !existingPhoneNumbers.contains(it.phoneNumber) }
-            val duplicateRecipients = newRecipients.filter { existingPhoneNumbers.contains(it.phoneNumber) }
-
-            val newSkippedContacts = mutableListOf<SkippedContact>()
-
-            // Add invalid contacts to skipped list
-            invalidContacts.forEach { contact ->
-                newSkippedContacts.add(SkippedContact(
-                    phoneNumber = contact.phoneNumber,
-                    originalPhoneNumber = contact.phoneNumber,
-                    name = contact.name ?: "Unknown", // Provide a default name if null
-                    reason = SkipReason.INVALID_FORMAT
-                ))
-            }
-
-            // Add duplicate contacts to skipped list
-            duplicateRecipients.forEach { recipient ->
-                newSkippedContacts.add(SkippedContact(
-                    phoneNumber = recipient.phoneNumber,
-                    originalPhoneNumber = recipient.phoneNumber,
-                    name = recipient.name ?: "Unknown", // Provide a default name if null
-                    reason = SkipReason.DUPLICATE_CONTACT
-                ))
-            }
-
-            val message = buildString {
-                if (duplicateRecipients.isNotEmpty()) {
-                    append("Skipped ${duplicateRecipients.size} duplicate contact(s). ")
+        viewModelScope.launch {
+            try {
+                _state.update { it.copy(isLoading = true, error = null) }
+                
+                // Filter out invalid phone numbers
+                val validContacts = contacts.filter { PhoneNumberValidator.isValidGhanaNumber(it.phoneNumber) }
+                val invalidContacts = contacts.filter { !PhoneNumberValidator.isValidGhanaNumber(it.phoneNumber) }
+            
+                val newRecipients = validContacts.map { contact ->
+                    // Format the phone number
+                    val formattedNumber = PhoneNumberValidator.formatGhanaNumber(contact.phoneNumber) ?: contact.phoneNumber
+                    Recipient(
+                        name = contact.name,
+                        phoneNumber = formattedNumber,
+                        variables = contact.variables
+                    )
                 }
-
-                if (invalidContacts.isNotEmpty()) {
-                    append("Skipped ${invalidContacts.size} invalid phone number(s).")
+            
+                _state.update { currentState ->
+                    val existingPhoneNumbers = currentState.recipients.map { it.phoneNumber }.toSet()
+                    val uniqueNewRecipients = newRecipients.filter { !existingPhoneNumbers.contains(it.phoneNumber) }
+                    val duplicateRecipients = newRecipients.filter { existingPhoneNumbers.contains(it.phoneNumber) }
+            
+                    val newSkippedContacts = mutableListOf<SkippedContact>()
+            
+                    // Add invalid contacts to skipped list
+                    invalidContacts.forEach { contact ->
+                        newSkippedContacts.add(SkippedContact(
+                            phoneNumber = contact.phoneNumber,
+                            originalPhoneNumber = contact.phoneNumber,
+                            name = contact.name ?: "Unknown", // Provide a default name if null
+                            reason = SkipReason.INVALID_FORMAT
+                        ))
+                    }
+            
+                    // Add duplicate contacts to skipped list
+                    duplicateRecipients.forEach { recipient ->
+                        newSkippedContacts.add(SkippedContact(
+                            phoneNumber = recipient.phoneNumber,
+                            originalPhoneNumber = recipient.phoneNumber,
+                            name = recipient.name ?: "Unknown", // Provide a default name if null
+                            reason = SkipReason.DUPLICATE_CONTACT
+                        ))
+                    }
+            
+                    val message = buildString {
+                        if (duplicateRecipients.isNotEmpty()) {
+                            append("Skipped ${duplicateRecipients.size} duplicate contact(s). ")
+                        }
+            
+                        if (invalidContacts.isNotEmpty()) {
+                            append("Skipped ${invalidContacts.size} invalid phone number(s).")
+                        }
+                    }
+            
+                    // Only update the error message, keep loading state true until we complete the UI update
+                    if (message.isNotEmpty()) {
+                        currentState.copy(
+                            error = message,
+                            recipients = currentState.recipients + uniqueNewRecipients,
+                            skippedContacts = currentState.skippedContacts + newSkippedContacts
+                        )
+                    } else {
+                        currentState.copy(
+                            recipients = currentState.recipients + uniqueNewRecipients,
+                            skippedContacts = currentState.skippedContacts + newSkippedContacts
+                        )
+                    }
                 }
+                
+                // Add a small delay to ensure UI updates are visible before hiding the loading indicator
+                kotlinx.coroutines.delay(500)
+                _state.update { it.copy(isLoading = false) }
+                
+            } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is UnknownHostException -> "No internet connection. Please check your network and try again."
+                    is SocketTimeoutException -> "Connection timed out. Please check your internet connection and try again."
+                    else -> "Failed to add contacts. Please try again."
+                }
+                
+                _state.update { it.copy(
+                    error = errorMessage,
+                    isLoading = false
+                )}
             }
-
-            if (message.isNotEmpty()) {
-                _state.value = currentState.copy(error = message)
-            }
-
-            currentState.copy(
-                recipients = currentState.recipients + uniqueNewRecipients,
-                skippedContacts = currentState.skippedContacts + newSkippedContacts
-            )
         }
     }
 
     fun removeRecipient(recipient: Recipient) {
-        _state.update { currentState ->
-            currentState.copy(
-                recipients = currentState.recipients.filter { it != recipient }
-            )
+        viewModelScope.launch {
+            _state.update { currentState -> currentState.copy(isLoading = true) }
+            
+            // Add a small delay to ensure the loading indicator is visible
+            kotlinx.coroutines.delay(300)
+            
+            _state.update { currentState ->
+                currentState.copy(
+                    recipients = currentState.recipients.filter { it != recipient },
+                    isLoading = false
+                )
+            }
         }
     }
 
     fun clearRecipients() {
-        _state.update { it.copy(recipients = emptyList()) }
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            
+            // Add a small delay to ensure the loading indicator is visible
+            kotlinx.coroutines.delay(300)
+            
+            _state.update { it.copy(recipients = emptyList(), isLoading = false) }
+        }
     }
 
     fun clearSelectedTemplate() {
@@ -459,14 +501,29 @@ class HomeViewModel @Inject constructor(
     }
 
     fun clearSkippedContacts() {
-        _state.update { it.copy(skippedContacts = emptyList()) }
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            
+            // Add a small delay to ensure the loading indicator is visible
+            kotlinx.coroutines.delay(300)
+            
+            _state.update { it.copy(skippedContacts = emptyList(), isLoading = false) }
+        }
     }
 
     fun removeSkippedContact(contact: SkippedContact) {
-        _state.update { currentState ->
-            currentState.copy(
-                skippedContacts = currentState.skippedContacts.filter { it != contact }
-            )
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            
+            // Add a small delay to ensure the loading indicator is visible
+            kotlinx.coroutines.delay(300)
+            
+            _state.update { currentState ->
+                currentState.copy(
+                    skippedContacts = currentState.skippedContacts.filter { it != contact },
+                    isLoading = false
+                )
+            }
         }
     }
 }

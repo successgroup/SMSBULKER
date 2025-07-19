@@ -1,9 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only access their own data
+    // Users can only access their own data, but backend service can update credits
     match /users/{userId} {
+      // Allow authenticated users to read and write their own data
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow unauthenticated backend service to update only credits and lastCreditUpdate fields
+      allow update: if request.auth == null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['credits', 'lastCreditUpdate']);
       
       // User-specific analytics
       match /analytics/{document=**} {
@@ -19,6 +23,19 @@ service cloud.firestore {
     // Allow webhook service to write delivery reports
     match /delivery_reports/{document=**} {
       allow read, write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to read payment transactions and the backend service to write
+    match /payment_transactions/{transactionId} {
+      allow read: if request.auth != null;
+      
+      // Allow all write operations (create, update, delete) from unauthenticated requests (backend service)
+      allow write: if request.auth == null;
+      
+      // For authenticated users, only allow operations on their own transactions
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
   }
 }
