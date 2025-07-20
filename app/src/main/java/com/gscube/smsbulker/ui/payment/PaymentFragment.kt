@@ -216,6 +216,7 @@ class PaymentFragment : Fragment() {
             
             // Initialize the bottom sheet if not already initialized
             if (!::paymentSummaryBottomSheet.isInitialized) {
+                android.util.Log.d("PaymentFragment", "Initializing new PaymentSummaryBottomSheet")
                 paymentSummaryBottomSheet = PaymentSummaryBottomSheet.newInstance()
                 paymentSummaryBottomSheet.setOnProceedClickListener {
                     proceedWithPayment()
@@ -227,13 +228,19 @@ class PaymentFragment : Fragment() {
             
             // Show the bottom sheet if not already showing
             if (!paymentSummaryBottomSheet.isAdded) {
+                android.util.Log.d("PaymentFragment", "Showing PaymentSummaryBottomSheet")
                 paymentSummaryBottomSheet.show(parentFragmentManager, PaymentSummaryBottomSheet.TAG)
-                // Update after showing to ensure views are properly initialized
-                paymentSummaryBottomSheet.view?.post {
-                    paymentSummaryBottomSheet.updateCalculationDisplay(calculation)
-                }
+                
+                // Wait for the bottom sheet to be fully shown before updating
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    android.util.Log.d("PaymentFragment", "Delayed update of calculation display")
+                    if (paymentSummaryBottomSheet.isAdded) {
+                        paymentSummaryBottomSheet.updateCalculationDisplay(calculation)
+                    }
+                }, 300) // Short delay to ensure bottom sheet is fully shown
             } else {
                 // Update immediately if already showing
+                android.util.Log.d("PaymentFragment", "Bottom sheet already showing, updating directly")
                 paymentSummaryBottomSheet.updateCalculationDisplay(calculation)
             }
             

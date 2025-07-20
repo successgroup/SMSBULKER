@@ -24,45 +24,54 @@ class PaymentRepositoryImpl @Inject constructor(
     companion object {
         private const val TRANSACTIONS_COLLECTION = "payment_transactions"
         private const val USERS_COLLECTION = "users"
-        private const val BASE_PRICE_PER_CREDIT = 0.054 // 2 NGN per credit
+        private const val BASE_PRICE_PER_CREDIT = 0.054 // Base price per credit in GHS
     }
 
     private val predefinedPackages = listOf(
         CreditPackage(
-            id = "starter_100",
+            id = "starter_20",
             name = "Starter Pack",
-            credits = 100,
-            price = 100.0,
+            credits = 370,
+            price = 20.0,
             description = "Perfect for small businesses",
-            bonusCredits = 10,
+            bonusCredits = 37,
             discountPercentage = 10
         ),
         CreditPackage(
-            id = "business_500",
+            id = "basic_50",
+            name = "Basic Pack",
+            credits = 925,
+            price = 50.0,
+            description = "Great for small businesses",
+            bonusCredits = 92,
+            discountPercentage = 10
+        ),
+        CreditPackage(
+            id = "business_100",
             name = "Business Pack",
-            credits = 500,
-            price = 500.0,
+            credits = 1850,
+            price = 100.0,
             description = "Great for growing businesses",
-            bonusCredits = 75,
+            bonusCredits = 277,
             isPopular = true,
             discountPercentage = 15
         ),
         CreditPackage(
-            id = "enterprise_1000",
+            id = "enterprise_200",
             name = "Enterprise Pack",
-            credits = 1000,
-            price = 1000.0,
-            description = "Best value for large operations",
-            bonusCredits = 200,
+            credits = 3700,
+            price = 200.0,
+            description = "Best value for medium operations",
+            bonusCredits = 740,
             discountPercentage = 20
         ),
         CreditPackage(
-            id = "premium_2500",
+            id = "premium_1000",
             name = "Premium Pack",
-            credits = 2500,
-            price = 2500.0,
+            credits = 18500,
+            price = 1000.0,
             description = "Maximum savings for heavy users",
-            bonusCredits = 625,
+            bonusCredits = 4625,
             discountPercentage = 25
         )
     )

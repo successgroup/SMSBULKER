@@ -67,14 +67,14 @@ class CreditPackagesAdapter(
         fun bind(creditPackage: CreditPackage, isSelected: Boolean) {
             binding.apply {
                 textViewPackageName.text = creditPackage.name
-                textViewCredits.text = creditPackage.credits.toString()
+                textViewCredits.text = String.format("%,d Credits", creditPackage.credits)
                 textViewPrice.text = String.format("%.2f %s", creditPackage.price, creditPackage.currency)
                 textViewDescription.text = creditPackage.description
                 
                 // Show bonus if available
                 if (creditPackage.bonusCredits > 0) {
                     textViewBonusCredits.isVisible = true
-                    textViewBonusCredits.text = String.format("+%d Bonus", creditPackage.bonusCredits)
+                    textViewBonusCredits.text = String.format("+%,d Bonus Credits", creditPackage.bonusCredits)
                 } else {
                     textViewBonusCredits.isVisible = false
                 }
@@ -86,6 +86,14 @@ class CreditPackagesAdapter(
                 } else {
                     textViewDiscount.isVisible = false
                 }
+                
+                // Set total credits
+                val totalCredits = creditPackage.credits + creditPackage.bonusCredits
+                textViewTotalCredits.text = String.format("Total: %,d Credits", totalCredits)
+                
+                // Set price per credit
+                val pricePerCredit = creditPackage.price / creditPackage.credits
+                textViewPricePerCredit.text = String.format("%.4f %s/credit", pricePerCredit, creditPackage.currency)
                 
                 // Show popular badge if marked as popular
                 badgePopular.isVisible = creditPackage.isPopular

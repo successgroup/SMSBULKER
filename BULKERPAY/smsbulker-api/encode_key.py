@@ -2,7 +2,7 @@ import base64
 import json
 
 # Replace with the actual path to your service account JSON file
-file_path = ""
+file_path = r"C:\Users\User\Downloads\smsbulker-99-firebase-adminsdk-hrmyo-a0411848dc.json"
 
 try:
     with open(file_path, 'r', encoding='utf-8') as f:

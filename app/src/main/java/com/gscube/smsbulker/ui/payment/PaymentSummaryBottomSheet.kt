@@ -26,11 +26,14 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = BottomSheetPaymentSummaryBinding.inflate(inflater, container, false)
+        android.util.Log.d(TAG, "onCreateView: binding initialized")
         return binding.root
     }
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        android.util.Log.d(TAG, "onViewCreated called")
         
         setupClickListeners()
         
@@ -43,10 +46,19 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
         binding.textViewSelectedPackage.text = "No package selected"
         binding.textViewSelectedPackage.visibility = View.GONE
         
-        // Apply any pending calculation
-        pendingCalculation?.let { calculation ->
-            updateCalculationDisplay(calculation)
-            pendingCalculation = null
+        // Apply any pending calculation with a delay to ensure view is fully laid out
+        val calculation = pendingCalculation
+        if (calculation != null) {
+            android.util.Log.d(TAG, "Applying pending calculation in onViewCreated")
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (isAdded && _binding != null) {
+                    android.util.Log.d(TAG, "Delayed update of calculation in onViewCreated")
+                    updateCalculationDisplay(calculation)
+                    pendingCalculation = null
+                }
+            }, 200) // Short delay to ensure view is fully laid out
+        } else {
+            android.util.Log.d(TAG, "No pending calculation to apply in onViewCreated")
         }
         
         // Ensure the bottom sheet is fully expanded when shown
@@ -88,15 +100,19 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
             "pricePerCredit=${calculation.pricePerCredit}, " +
             "selectedPackage=${calculation.selectedPackage?.name}")
         
-        if (_binding == null || !isAdded || !isVisible) {
+        android.util.Log.d(TAG, "Binding status: _binding=${_binding != null}, isAdded=$isAdded, isVisible=$isVisible")
+        
+        if (_binding == null || !isAdded) {
             // Store calculation for later when view is ready
             android.util.Log.d(TAG, "View not ready, storing calculation for later")
             pendingCalculation = calculation
             return
         }
         
-        // Use post to ensure UI thread updates after the view is fully laid out
-        binding.root.post {
+        android.util.Log.d(TAG, "View is ready, updating UI directly")
+        
+        // Force update on main thread
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
             try {
                 // Double-check we're still ready
                 if (!isAdded || _binding == null || !isVisible) {
@@ -106,26 +122,36 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
                 }
                     
                     // Update base credits with null check
-                    binding.textViewCredits.text = calculation.customCredits.toString()
-                    android.util.Log.d(TAG, "Set textViewCredits to: ${calculation.customCredits}")
-                    
-                    // Update bonus credits with null check
-                    binding.textViewBonusCredits.text = calculation.bonusCredits.toString()
-                    android.util.Log.d(TAG, "Set textViewBonusCredits to: ${calculation.bonusCredits}")
-                    
-                    // Update total credits with null check
-                    binding.textViewTotalCredits.text = calculation.totalCredits.toString()
-                    android.util.Log.d(TAG, "Set textViewTotalCredits to: ${calculation.totalCredits}")
-                    
-                    // Update total amount with null check
-                    val formattedAmount = String.format("GH¢%.2f", calculation.totalAmount)
-                    binding.textViewAmount.text = formattedAmount
-                    android.util.Log.d(TAG, "Set textViewAmount to: $formattedAmount")
-                    
-                    // Update price per credit with null check
-                    val formattedPrice = String.format("Price per credit: GH¢%.4f", calculation.pricePerCredit)
-                    binding.textViewPricePerCredit.text = formattedPrice
-                    android.util.Log.d(TAG, "Set textViewPricePerCredit to: $formattedPrice")
+                    try {
+                        binding.textViewCredits.text = calculation.customCredits.toString()
+                        android.util.Log.d(TAG, "Set textViewCredits to: ${calculation.customCredits}")
+                        
+                        // Update bonus credits with null check
+                        binding.textViewBonusCredits.text = calculation.bonusCredits.toString()
+                        android.util.Log.d(TAG, "Set textViewBonusCredits to: ${calculation.bonusCredits}")
+                        
+                        // Update total credits with null check
+                        binding.textViewTotalCredits.text = calculation.totalCredits.toString()
+                        android.util.Log.d(TAG, "Set textViewTotalCredits to: ${calculation.totalCredits}")
+                        
+                        // Update total amount with null check
+                        val formattedAmount = String.format("GH¢%.2f", calculation.totalAmount)
+                        binding.textViewAmount.text = formattedAmount
+                        android.util.Log.d(TAG, "Set textViewAmount to: $formattedAmount")
+                        
+                        // Update price per credit with null check
+                        val formattedPrice = String.format("Price per credit: GH¢%.4f", calculation.pricePerCredit)
+                        binding.textViewPricePerCredit.text = formattedPrice
+                        android.util.Log.d(TAG, "Set textViewPricePerCredit to: $formattedPrice")
+                        
+                        // Verify the text was actually set
+                        android.util.Log.d(TAG, "Verification - textViewCredits: ${binding.textViewCredits.text}")
+                        android.util.Log.d(TAG, "Verification - textViewBonusCredits: ${binding.textViewBonusCredits.text}")
+                        android.util.Log.d(TAG, "Verification - textViewTotalCredits: ${binding.textViewTotalCredits.text}")
+                        android.util.Log.d(TAG, "Verification - textViewAmount: ${binding.textViewAmount.text}")
+                    } catch (e: Exception) {
+                        android.util.Log.e(TAG, "Exception while updating UI", e)
+                    }
                     
                     // Update selected package information
                     if (calculation.selectedPackage != null) {
@@ -144,6 +170,21 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
                     // Force layout refresh with multiple approaches
                     binding.root.invalidate()
                     binding.root.requestLayout()
+                    
+                    // Force redraw of each TextView
+                    binding.textViewCredits.invalidate()
+                    binding.textViewBonusCredits.invalidate()
+                    binding.textViewTotalCredits.invalidate()
+                    binding.textViewAmount.invalidate()
+                    binding.textViewPricePerCredit.invalidate()
+                    binding.textViewSelectedPackage.invalidate()
+                    
+                    // Log final state after update
+                    android.util.Log.d(TAG, "Final UI state after update: " +
+                        "Credits=${binding.textViewCredits.text}, " +
+                        "Bonus=${binding.textViewBonusCredits.text}, " +
+                        "Total=${binding.textViewTotalCredits.text}, " +
+                        "Amount=${binding.textViewAmount.text}")
                     
                     // Ensure all views are properly measured and laid out
                     binding.root.measure(

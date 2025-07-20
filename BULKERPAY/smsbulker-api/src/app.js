@@ -52,6 +52,13 @@ app.get('/verifyPaystackTransaction/:reference', (req, res) => {
   return verifyTransaction(req, res);
 });
 
+// Route for manually retrying failed credit updates
+app.post('/retryPaymentCreditUpdate/:transactionId', (req, res) => {
+  // Forward the request to the proper controller
+  const { manualRetryUpdate } = require('./controllers/paymentController');
+  return manualRetryUpdate(req, res);
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
