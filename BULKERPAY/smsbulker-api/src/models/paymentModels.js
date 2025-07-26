@@ -20,7 +20,8 @@ class PaymentTransaction {
     paystackReference,
     createdAt,
     completedAt = null,
-    failureReason = null
+    failureReason = null,
+    paymentChannel = null
   }) {
     this.id = id;
     this.userId = userId;
@@ -34,6 +35,7 @@ class PaymentTransaction {
     this.createdAt = createdAt;
     this.completedAt = completedAt;
     this.failureReason = failureReason;
+    this.paymentChannel = paymentChannel; // Added for mobile money payments
   }
 }
 
@@ -43,13 +45,17 @@ class PaymentRequest {
     amount,
     currency,
     email,
-    userId
+    userId,
+    credits = 0,
+    mobileNumber = null
   }) {
     this.packageId = packageId;
     this.amount = amount;
     this.currency = currency;
     this.email = email;
     this.userId = userId;
+    this.credits = credits;
+    this.mobileNumber = mobileNumber; // Added for mobile money payments
   }
 }
 

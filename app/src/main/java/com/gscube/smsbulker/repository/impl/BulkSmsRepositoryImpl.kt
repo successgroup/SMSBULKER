@@ -8,6 +8,7 @@ import com.gscube.smsbulker.data.network.ArkeselApi
 import com.gscube.smsbulker.di.AppScope
 import com.gscube.smsbulker.repository.BulkSmsRepository
 import com.gscube.smsbulker.repository.FirebaseRepository
+import com.gscube.smsbulker.repository.MessageAnalyticsRepository
 import com.gscube.smsbulker.repository.UserRepository
 import com.gscube.smsbulker.utils.SecureStorage
 import com.squareup.anvil.annotations.ContributesBinding
@@ -32,7 +33,8 @@ class BulkSmsRepositoryImpl @Inject constructor(
     @Named("sandbox_mode") private val sandboxMode: Boolean,
     private val secureStorage: SecureStorage,
     private val firebaseRepository: FirebaseRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val messageAnalyticsRepository: MessageAnalyticsRepository
 ) : BulkSmsRepository {
 
     companion object {
@@ -161,6 +163,19 @@ class BulkSmsRepositoryImpl @Inject constructor(
             
             Log.d("BulkSmsRepository", "Processing $messageCount recipients in $totalBatches batches of max $BATCH_SIZE")
 
+            // Track batch in analytics
+            val batchAnalyticsResult = messageAnalyticsRepository.trackBatch(
+                batchId = batchId,
+                totalMessages = messageCount,
+                messageTemplate = request.messageTemplate?.content ?: request.message,
+                isPersonalized = hasPlaceholders,
+                totalCreditsUsed = totalCreditsRequired
+            )
+            
+            if (batchAnalyticsResult.isFailure) {
+                Log.w("BulkSmsRepository", "Failed to track batch analytics: ${batchAnalyticsResult.exceptionOrNull()?.message}")
+            }
+
             // Process batches with retry logic
             val allMessageStatuses = mutableListOf<MessageStatus>()
             var successfulBatches = 0
@@ -175,7 +190,8 @@ class BulkSmsRepositoryImpl @Inject constructor(
                     senderId = request.senderId.takeIf { !it.isNullOrBlank() } ?: fallbackSenderId,
                     request = request,
                     batchIndex = batchIndex + 1,
-                    totalBatches = totalBatches
+                    totalBatches = totalBatches,
+                    batchId = batchId
                 )
 
                 if (batchResult.isSuccess) {
@@ -212,8 +228,37 @@ class BulkSmsRepositoryImpl @Inject constructor(
                 } else {
                     // Handle batch failure - add failed statuses for this batch
                     val failedStatuses = recipientBatch.map { recipient ->
+                        val messageId = UUID.randomUUID().toString()
+                        
+                        // Track failed message in analytics
+                        val messageLength = if (hasPlaceholders) {
+                            replacePlaceholders(messageText, recipient).length
+                        } else {
+                            messageText.length
+                        }
+                        
+                        val messageSegments = if (messageLength == 0) 0 else ((messageLength - 1) / 152) + 1
+                        
+                        messageAnalyticsRepository.trackMessage(
+                            messageId = messageId,
+                            batchId = batchId,
+                            recipient = recipient.phoneNumber,
+                            sender = request.senderId ?: fallbackSenderId,
+                            messageLength = messageLength,
+                            messageSegments = messageSegments,
+                            creditsUsed = messageSegments
+                        )
+                        
+                        // Update message status to failed
+                        messageAnalyticsRepository.updateMessageStatus(
+                            messageId = messageId,
+                            status = SmsStatus.FAILED,
+                            errorCode = "BATCH_FAILED",
+                            errorMessage = batchResult.exceptionOrNull()?.message
+                        )
+                        
                         MessageStatus(
-                            messageId = "",
+                            messageId = messageId,
                             recipient = recipient.phoneNumber,
                             status = BatchStatus.FAILED,
                             timestamp = System.currentTimeMillis(),
@@ -246,6 +291,9 @@ class BulkSmsRepositoryImpl @Inject constructor(
                 else -> BatchStatus.FAILED
             }
 
+            // Update batch analytics with final status
+            messageAnalyticsRepository.updateBatchStatus(batchId)
+
             Log.d("BulkSmsRepository", "Bulk SMS completed: $successfulBatches/$totalBatches batches successful, $totalCreditsDeducted credits deducted")
 
             Result.success(BulkSmsResponse(
@@ -269,7 +317,8 @@ class BulkSmsRepositoryImpl @Inject constructor(
         senderId: String,
         request: BulkSmsRequest,
         batchIndex: Int,
-        totalBatches: Int
+        totalBatches: Int,
+        batchId: String
     ): Result<List<MessageStatus>> {
         var lastException: Exception? = null
         
@@ -277,7 +326,7 @@ class BulkSmsRepositoryImpl @Inject constructor(
             try {
                 Log.d("BulkSmsRepository", "Batch $batchIndex/$totalBatches - Attempt ${attempt + 1}/$MAX_RETRIES")
                 
-                val result = processSingleBatch(recipientBatch, messageText, senderId, request)
+                val result = processSingleBatch(recipientBatch, messageText, senderId, request, batchId)
                 if (result.isSuccess) {
                     return result
                 }
@@ -302,7 +351,8 @@ class BulkSmsRepositoryImpl @Inject constructor(
         recipientBatch: List<Recipient>,
         messageText: String,
         senderId: String,
-        request: BulkSmsRequest
+        request: BulkSmsRequest,
+        batchId: String
     ): Result<List<MessageStatus>> {
         // Create recipients map for this batch
         val recipientsMap = if (request.messageTemplate?.variables?.isNotEmpty() == true) {
@@ -358,6 +408,29 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
         // Create message status entries for this batch
         val messageStatuses = responseData.data.map { result ->
+            val recipient = recipientBatch.find { it.phoneNumber == result.recipient }
+            val hasPlaceholders = containsPlaceholders(messageText)
+            
+            // Calculate message length and segments for analytics
+            val messageLength = if (hasPlaceholders && recipient != null) {
+                replacePlaceholders(messageText, recipient).length
+            } else {
+                messageText.length
+            }
+            
+            val messageSegments = if (messageLength == 0) 0 else ((messageLength - 1) / 152) + 1
+            
+            // Track message in analytics
+            messageAnalyticsRepository.trackMessage(
+                messageId = result.id,
+                batchId = batchId,
+                recipient = result.recipient,
+                sender = senderId,
+                messageLength = messageLength,
+                messageSegments = messageSegments,
+                creditsUsed = messageSegments
+            )
+            
             MessageStatus(
                 messageId = result.id,
                 recipient = result.recipient,
@@ -372,7 +445,15 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun getBatchStatus(batchId: String): Result<BatchStatus> {
         return try {
-            // For now, just return COMPLETED since v2 API doesn't have status check
+            // Try to get status from analytics repository first
+            val batchAnalyticsResult = messageAnalyticsRepository.getBatchAnalytics(batchId)
+            
+            if (batchAnalyticsResult.isSuccess) {
+                val batchAnalytics = batchAnalyticsResult.getOrNull()!!
+                return Result.success(batchAnalytics.status)
+            }
+            
+            // Fallback to default behavior if analytics not available
             Result.success(BatchStatus.COMPLETED)
         } catch (e: Exception) {
             Result.failure(e)
@@ -381,7 +462,32 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun getBatchMessageStatuses(batchId: String): Result<List<MessageStatus>> {
         return try {
-            // For now, return empty list since v2 API doesn't have status check
+            // Try to get message statuses from analytics repository
+            val messagesResult = messageAnalyticsRepository.getMessagesForBatch(batchId)
+            
+            if (messagesResult.isSuccess) {
+                val messages = messagesResult.getOrNull()!!
+                
+                // Convert MessageAnalytics to MessageStatus
+                val messageStatuses = messages.map { messageAnalytics ->
+                    MessageStatus(
+                        messageId = messageAnalytics.messageId,
+                        recipient = messageAnalytics.recipient,
+                        status = when (messageAnalytics.status) {
+                            SmsStatus.DELIVERED -> BatchStatus.COMPLETED
+                            SmsStatus.FAILED -> BatchStatus.FAILED
+                            SmsStatus.PENDING -> BatchStatus.QUEUED
+                            else -> BatchStatus.QUEUED
+                        },
+                        timestamp = messageAnalytics.lastUpdated ?: messageAnalytics.sentTimestamp,
+                        errorMessage = messageAnalytics.errorMessage
+                    )
+                }
+                
+                return Result.success(messageStatuses)
+            }
+            
+            // Fallback to default behavior if analytics not available
             Result.success(emptyList())
         } catch (e: Exception) {
             Result.failure(e)
@@ -390,7 +496,29 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun getMessageStatus(messageId: String): Result<MessageStatus> {
         return try {
-            // For now, return completed status since v2 API doesn't have status check
+            // Try to get message status from analytics repository
+            val messageAnalyticsResult = messageAnalyticsRepository.getMessageAnalytics(messageId)
+            
+            if (messageAnalyticsResult.isSuccess) {
+                val messageAnalytics = messageAnalyticsResult.getOrNull()!!
+                
+                return Result.success(
+                    MessageStatus(
+                        messageId = messageAnalytics.messageId,
+                        recipient = messageAnalytics.recipient,
+                        status = when (messageAnalytics.status) {
+                            SmsStatus.DELIVERED -> BatchStatus.COMPLETED
+                            SmsStatus.FAILED -> BatchStatus.FAILED
+                            SmsStatus.PENDING -> BatchStatus.QUEUED
+                            else -> BatchStatus.QUEUED
+                        },
+                        timestamp = messageAnalytics.lastUpdated ?: messageAnalytics.sentTimestamp,
+                        errorMessage = messageAnalytics.errorMessage
+                    )
+                )
+            }
+            
+            // Fallback to default behavior if analytics not available
             Result.success(
                 MessageStatus(
                     messageId = messageId,
@@ -407,7 +535,21 @@ class BulkSmsRepositoryImpl @Inject constructor(
 
     override suspend fun updateMessageStatus(messageId: String, status: MessageStatus): Result<Unit> {
         return try {
-            // For now, just return success since v2 API doesn't have status update
+            // Update message status in analytics repository
+            val smsStatus = when (status.status) {
+                BatchStatus.COMPLETED -> SmsStatus.DELIVERED
+                BatchStatus.FAILED -> SmsStatus.FAILED
+                BatchStatus.QUEUED, BatchStatus.PROCESSING -> SmsStatus.PENDING
+                else -> SmsStatus.PENDING
+            }
+            
+            messageAnalyticsRepository.updateMessageStatus(
+                messageId = messageId,
+                status = smsStatus,
+                errorCode = if (status.status == BatchStatus.FAILED) "MANUAL_UPDATE" else null,
+                errorMessage = status.errorMessage
+            )
+            
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

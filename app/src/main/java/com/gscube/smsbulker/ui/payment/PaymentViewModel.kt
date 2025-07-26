@@ -116,7 +116,7 @@ class PaymentViewModel @Inject constructor(
         }
     }
 
-    fun initiatePayment(email: String, userId: String): LiveData<PaymentResponse> {
+    fun initiatePayment(email: String, userId: String, mobileNumber: String? = null): LiveData<PaymentResponse> {
         val currentCalculation = _calculation.value ?: return MutableLiveData(null)
         val result = MutableLiveData<PaymentResponse>()
         
@@ -129,7 +129,8 @@ class PaymentViewModel @Inject constructor(
                 currency = "GHS",
                 email = email,
                 userId = userId,
-                credits = currentCalculation.totalCredits
+                credits = currentCalculation.totalCredits,
+                mobileNumber = mobileNumber // Added for mobile money payments
             )
             
             paymentRepository.initiatePayment(request)

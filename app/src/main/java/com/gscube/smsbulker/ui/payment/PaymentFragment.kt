@@ -44,7 +44,7 @@ class PaymentFragment : Fragment() {
     companion object {
         // TODO: Replace with your actual Paystack test public key from your Paystack dashboard
         // The current placeholder value is causing the "Invalid key" error
-        private const val PAYSTACK_PUBLIC_KEY = "pk_test_a912b314e9f7bb48d01e62eba3194bf04d24d062"
+        private const val PAYSTACK_PUBLIC_KEY = "pk_live_12430ef496ab3bda2ddcabf5a113e6c427f8844e"
     }
 
     override fun onAttach(context: android.content.Context) {
@@ -273,8 +273,11 @@ class PaymentFragment : Fragment() {
         val userEmail = currentUser?.email ?: "user@example.com"
         val userId = currentUser?.uid ?: "user123"
         
+        // Get mobile number if provided (for mobile money payments)
+        val mobileNumber = paymentSummaryBottomSheet.getMobileNumber()
+        
         // Make an API call to your backend to initialize the transaction and get an access_code
-        viewModel.initiatePayment(userEmail, userId).observe(viewLifecycleOwner) { response ->
+        viewModel.initiatePayment(userEmail, userId, mobileNumber).observe(viewLifecycleOwner) { response ->
             // Hide progress overlay if payment initialization is complete
             if (::paymentSummaryBottomSheet.isInitialized && paymentSummaryBottomSheet.isAdded) {
                 paymentSummaryBottomSheet.showProgressOverlay(false)

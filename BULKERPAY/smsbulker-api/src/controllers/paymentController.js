@@ -11,7 +11,7 @@ const PAYSTACK_BASE_URL = process.env.PAYSTACK_BASE_URL || 'https://api.paystack
 const initializeTransaction = async (req, res) => {
   try {
     // Get payment details from request body
-    const { email, amount, currency, userId, packageId } = req.body;
+    const { email, amount, currency, userId, packageId, mobileNumber } = req.body;
 
     // Validate required fields
     if (!email || !amount || !currency || !userId) {
@@ -28,15 +28,25 @@ const initializeTransaction = async (req, res) => {
     const amountInKobo = Math.round(amount * 100);
 
     // Make request to Paystack API to initialize transaction
+    const paystackPayload = {
+      email,
+      amount: amountInKobo,
+      currency,
+      reference,
+      channels: ['card', 'mobile_money', 'bank'], // Enable mobile money payments
+      callback_url: 'https://smsbulker.web.app/payment/callback'
+    };
+    
+    // Add mobile number for mobile money payments if provided
+    if (mobileNumber) {
+      paystackPayload.metadata = {
+        mobile_number: mobileNumber
+      };
+    }
+    
     const paystackResponse = await axios.post(
       `${PAYSTACK_BASE_URL}/transaction/initialize`,
-      {
-        email,
-        amount: amountInKobo,
-        currency,
-        reference,
-        callback_url: 'https://smsbulker.web.app/payment/callback',
-      },
+      paystackPayload,
       {
         headers: {
           'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
@@ -60,6 +70,7 @@ const initializeTransaction = async (req, res) => {
           status: PaymentStatus.PENDING,
           paymentMethod: 'paystack',
           paystackReference: reference,
+          paymentChannel: mobileNumber ? 'mobile_money' : null,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 

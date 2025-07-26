@@ -217,6 +217,19 @@ class PaymentSummaryBottomSheet : BottomSheetDialogFragment() {
         _binding = null
     }
     
+    /**
+     * Get the mobile number entered by the user for mobile money payments
+     * @return The mobile number or null if not provided
+     */
+    fun getMobileNumber(): String? {
+        return if (_binding != null) {
+            val mobileNumber = binding.editTextMobileNumber.text.toString().trim()
+            if (mobileNumber.isEmpty()) null else mobileNumber
+        } else {
+            null
+        }
+    }
+    
     companion object {
         const val TAG = "PaymentSummaryBottomSheet"
         

@@ -27,6 +27,7 @@ data class PaymentTransaction(
     val credits: Int,
     val status: PaymentStatus,
     val paymentMethod: String = "paystack",
+    val paymentChannel: String? = null, // Added for mobile money tracking
     val paystackReference: String,
     val createdAt: Timestamp,
     val completedAt: Timestamp? = null,
@@ -48,7 +49,8 @@ data class PaymentRequest(
     val currency: String,
     val email: String,
     val userId: String,
-    val credits: Int
+    val credits: Int,
+    val mobileNumber: String? = null // Added for mobile money payments
 ) : Parcelable
 
 @Parcelize
